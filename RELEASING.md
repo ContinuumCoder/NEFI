@@ -17,6 +17,14 @@ not part of the documentation site.
 3. On GitHub, create the `pypi` environment (Settings → Environments) — optionally restrict it to
    tags `v*` and require a reviewer.
 
+## One-time setup (documentation site)
+
+The `pages` workflow builds the MkDocs site on every push to `main` and deploys it with
+`actions/deploy-pages`. GitHub only accepts such deployments once Pages is switched on for the
+repository: open **Settings → Pages → Build and deployment** and set **Source** to
+**GitHub Actions**. The workflow token cannot do this by itself, so the first deploy fails with a
+404 until the setting is saved; re-run the workflow afterwards.
+
 ## Cutting a release
 
 ```bash
