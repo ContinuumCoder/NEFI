@@ -1,0 +1,108 @@
+# NeFTY thermal tomography — paper settings (arXiv 2603.11045, Tab. 5 / App. A.5 / D / E).
+# Every value equals the default of nefi.instances.thermal_tomography.ThermalTomographyConfig and is
+# spelled out here for provenance. Values the paper does not state are marked "not in paper".
+# Usage (CUDA server):
+#   python examples/thermal_tomography.py --config configs/thermal_tomography_paper.yaml --device cuda
+#   nefi run configs/thermal_tomography_paper.yaml --device cuda --plot
+instance:
+  type: thermal_tomography
+  # domain and grid (Tab. 5): L × L × H = 10 × 10 × 1 on 64 × 64 × 16 → Δx = Δy = 0.156, Δz = 0.0625
+  extent: [10.0, 10.0, 1.0]
+  grid: [64, 64, 16]
+  # forward solver (Tab. 5, §4.2, App. D.2): implicit Euler, Δt = one camera frame, 100 frames
+  dt: 0.05
+  n_frames: 100
+  first_frame: 1             # observe every frame after the flash (1..100)
+  frame_stride: 1
+  solver: jacobi             # K unrolled Jacobi sweeps (Eq. 24); "cg" = preconditioned CG
+  jacobi_iters: 50           # K (Tab. 5)
+  cg_tol: 1.0e-6             # not in paper (CG option)
+  cg_max_iter: 200           # not in paper (CG option)
+  implicit_substeps: 1       # 1 = paper (one implicit step per frame)
+  face_mode: harmonic        # Prop. 1 (arithmetic = HM ablation)
+  grad_mode: adjoint         # discrete adjoint, Eq. (10)–(11); autograd / checkpoint = references
+  adjoint_assembly: fused
+  # torch.compile the gradient-free Jacobi sweeps of the adjoint (the paper's compiled kernels).
+  # One-time cost: ≈ 10-40 s of compilation at the first step (CUDA), then several-fold fewer kernel
+  # launches per sweep; falls back to eager with a warning if compilation is unavailable. This is
+  # the one value that differs from the code default (False: CPU / MPS / tests stay eager).
+  compile_solver: true
+  compile_mode: null         # "max-autotune-no-cudagraphs" is a safe alternative on CUDA
+  stencil_backend: auto      # flat padded layout (same numbers as the torch.roll reference)
+  alpha_min: 0.003           # (α_min, α_max) (Tab. 5)
+  alpha_max: 0.25
+  # boundary conditions (App. A.5): periodic lateral, adiabatic front/back faces
+  bc_lateral: periodic
+  bc_back: neumann           # robin for the PVC back face (App. A.5 / H.2)
+  robin_h: 0.0
+  # initial condition (App. A.5): Gaussian post-flash; amplitude / widths not in paper
+  initial: gaussian
+  flash_amplitude: 100.0     # not in paper (surface range ≈ 90 is consistent with Tab. 7 PSNRs)
+  flash_width_xy: 2.5        # not in paper
+  flash_width_z: 0.2         # not in paper (w_z ≪ H; 0.1 triples the relative model error)
+  flash_center: null         # domain centre
+  # synthetic scenes (App. E.1)
+  scene: homogeneous         # homogeneous | layered
+  alpha_base_range: [0.1, 0.2]
+  alpha_defect_range: [0.005, 0.015]
+  n_defects: [1, 4]
+  n_layers: [3, 4]
+  defect_shapes: [ellipsoid, cylinder, box]
+  defect_radius_range: [0.6, 1.6]          # not in paper
+  defect_half_thickness_range: [0.08, 0.2] # not in paper
+  defect_depth_range: [0.25, 0.75]         # not in paper (fraction of H)
+  lateral_margin: 1.0                      # not in paper
+  min_layer_fraction: 0.15                 # not in paper
+  # data generation (App. E.1): independent explicit simulator, N_sub = max(10, ⌈Δt/Δt_stable·2⌉)
+  sim_face_mode: harmonic
+  sim_min_substeps: 10
+  sim_substep_safety: 2.0
+  sim_supersample: 1
+  noise_std: 0.0             # the paper's synthetic data are noise-free
+  # neural field (Tab. 5, App. D.1): 10 × 512 ReLU MLP, skip at 4, K = 12 octaves, scaled sigmoid
+  hidden: 512
+  depth: 10
+  skip_at: 4
+  activation: relu
+  n_octaves: 12
+  include_input: false       # Eq. (20): γ(x) ∈ R^{2DN}
+  out_init_scale: 0.1        # not in paper (near-uniform initial field)
+  alpha_init: 0.15           # not in paper (bulk mean, as Grid Opt. App. F.2)
+  # optimization (Tab. 5): Adam 5e-5, ×0.1 every 1000 steps, 10 000 steps, annealing over 2 500
+  steps: 10000
+  lr: 5.0e-5
+  lr_schedule: step
+  lr_step_size: 1000
+  lr_gamma: 0.1
+  lr_min_ratio: 0.01         # only used by cosine schedules
+  anneal_steps: 2500         # T_FA
+  optimizer: adam
+  weight_decay: 0.0
+  grad_clip: null
+  n_stages: 1                # the paper is single-stage
+  stage_steps: null
+  stage_lr_decay: 1.0
+  # regularization (Tab. 5, Eq. 22)
+  tv_weight: 1.0e-3          # λ, relative to the per-element surface MSE (see docs)
+  tv_eps: 1.0e-6             # ε_TV
+  # evaluation (App. E.2, G.5, H.3)
+  iou_tau: 0.03
+  edge_threshold: 0.5
+  edge_dilate: 1
+  projection_k: 2.0
+  # Grid Opt. baseline (App. F.2): same schedule unless overridden
+  grid_lr: null
+  grid_steps: null
+  # soft-constrained PINN baseline (Eq. 4, App. F.1): T_φ depth 5 × width 128, N_c = 24 576,
+  # Adam 1e-3, 22 000 iterations; fixed λ_PDE / λ_IC instead of GradNorm (not in paper)
+  pinn_hidden: 128
+  pinn_depth: 5
+  pinn_n_octaves: 0          # not in paper
+  pinn_collocation: 24576
+  pinn_lambda_pde: 1.0       # not in paper (GradNorm-balanced there)
+  pinn_lambda_ic: 1.0        # not in paper (GradNorm-balanced there)
+  pinn_lr: 1.0e-3
+  pinn_steps: 22000
+run:
+  seed: 0
+  device: auto

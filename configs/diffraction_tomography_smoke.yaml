@@ -1,0 +1,35 @@
+# diffraction_tomography — tiny local smoke run (CPU, ~3-5 s): 32×32 contrast χ = n² − 1 on a
+# 4 × 4 μm object domain (λ = 1 μm), 16 plane-wave illuminations, 64 receivers on a ring of radius
+# 3 μm; data from the multiple-scattering Lippmann–Schwinger simulator (2x grid, float64) + 1 % noise;
+# linear Born inversion with a 16² → 32² curriculum (200 + 300 steps).
+# Everything not listed takes the default of
+# nefi.instances.diffraction_tomography.DiffractionTomographyConfig.
+# Usage:  python examples/diffraction_tomography.py --config configs/diffraction_tomography_smoke.yaml
+#         nefi run diffraction_tomography --smoke
+instance: diffraction_tomography
+config:
+  n: 32
+  extent: 4.0                # μm (object domain side, centered)
+  wavelength: 1.0            # μm
+  background_index: 1.0
+  scene: blobs               # blobs | cells
+  contrast: 0.02             # peak χ (weak scattering: Born error ≈ 3 % of the data)
+  n_angles: 16
+  n_receivers: 64
+  receiver_radius: 3.0       # μm (> half-diagonal 2.83 μm)
+  rytov: false
+  noise_std: 0.01
+  supersample: 2
+  chi_min: -0.05
+  chi_max: 0.1
+  hidden: 64
+  depth: 4
+  n_octaves: 5               # 16 cycles = Nyquist at 32 px
+  tv: 1.0e-3
+  steps: [200, 300]
+  lr: 2.0e-2
+run:
+  seed: 0
+  device: auto
+  methods: [neural, backpropagation, grid]
+  out: runs/diffraction_tomography_smoke

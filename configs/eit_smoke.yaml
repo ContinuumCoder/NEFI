@@ -1,0 +1,27 @@
+# EIT (continuum model) — local smoke / gallery run (CPU, ~5-10 s).
+# 24×24 grid, 12 trigonometric current patterns (frequencies 1-6), one high-contrast inclusion
+# (σ ratio 8-12), 0.1 % noise; curriculum 12² → 24², 200 + 400 steps. Everything not listed takes
+# the default of nefi.instances.eit.EITConfig (see configs/eit_full.yaml).
+# Usage:  python examples/eit.py --config configs/eit_smoke.yaml
+instance:
+  type: eit
+  n: 24                      # 24×24 cells on [-1, 1]² (92 boundary cells observed)
+  n_patterns: 12             # cos/sin patterns of frequency 1..6 (4 patterns leave one blurry blob)
+  scene: single              # single | multi | contrast
+  contrast: [8.0, 12.0]      # large inclusion contrast (sharp, well-identified boundary)
+  noise_std: 1.0e-3          # relative to max |V| on the boundary strip
+  supersample: 2             # data: same physics on a 48×48 grid in float64
+  # log-parameterized conductivity (LogBounded head, the EITConfig default) + TV on σ
+  hidden: 128
+  depth: 4
+  n_octaves: 3
+  activation: relu
+  steps: [200, 400]          # 12² (min_coarse) → 24²
+  lr: 0.01
+  tv: 1.0e-5
+  grid_lr: 0.05
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid]
+  out: runs/eit_smoke

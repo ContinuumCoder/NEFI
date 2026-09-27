@@ -1,0 +1,28 @@
+# poisson_source — local smoke / gallery run (CPU, ~2-5 s): 32×32 grid, 2-4 Gaussian source blobs,
+# u observed on a random 30 % of the pixels with 1 % noise, 16² → 32² with 200 + 400 steps.
+# The small-budget prior differs from configs/poisson_source_full.yaml: a ReLU field with a faster
+# annealing ramp (anneal_fraction 0.5) and a stronger TV (5e-4) recovers every compact blob in
+# 600 steps, where the tanh field (full config) needs thousands of steps and misses the weakest one.
+# Usage:  python examples/poisson_source.py --config configs/poisson_source_smoke.yaml
+#         nefi run poisson_source --smoke
+instance: poisson_source
+config:
+  n: 32
+  scene: blobs               # blobs | points | smooth
+  obs_mode: random           # random | boundary | full
+  obs_fraction: 0.3
+  noise_std: 0.01
+  hidden: 64
+  depth: 3
+  n_octaves: 5
+  activation: relu
+  tv: 5.0e-4
+  steps: [200, 400]
+  lr: 1.0e-2
+  anneal_fraction: 0.5
+  dd_width: 32
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid, deep_decoder]
+  out: runs/poisson_source_smoke

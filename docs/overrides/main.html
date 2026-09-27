@@ -1,0 +1,29 @@
+{#- nefi site: Material's main template plus link-preview metadata and the touch icon. -#}
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  {%- set nf_title = config.site_name ~ " — Neural-Field Inversion" -%}
+  {%- if page and page.title and not page.is_homepage -%}
+    {%- set nf_title = (page.title | striptags) ~ " · nefi" -%}
+  {%- endif -%}
+  {%- set nf_desc = config.site_description -%}
+  {%- if page and page.meta and page.meta.description -%}
+    {%- set nf_desc = page.meta.description -%}
+  {%- endif %}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="nefi — Neural-Field Inversion">
+  <meta property="og:title" content="{{ nf_title }}">
+  <meta property="og:description" content="{{ nf_desc }}">
+  {%- if page and page.canonical_url %}
+  <meta property="og:url" content="{{ page.canonical_url }}">
+  {%- endif %}
+  <meta property="og:image" content="{{ config.site_url }}assets/brand/social-card.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ nf_title }}">
+  <meta name="twitter:description" content="{{ nf_desc }}">
+  <meta name="twitter:image" content="{{ config.site_url }}assets/brand/social-card.png">
+  <link rel="apple-touch-icon" href="{{ 'assets/brand/apple-touch-icon.png' | url }}">
+{% endblock %}

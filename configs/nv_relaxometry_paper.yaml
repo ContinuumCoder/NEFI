@@ -1,0 +1,83 @@
+# NeTMY NV relaxometry — paper settings (arXiv 2605.13988). Every value is the default of
+# nefi.instances.nv_relaxometry.NVRelaxometryConfig; it is spelled out here for provenance.
+# Usage (CUDA server):
+#   python examples/nv_relaxometry.py --config configs/nv_relaxometry_paper.yaml --device cuda
+instance:
+  type: nv_relaxometry
+  # geometry & physics (§3.1, App. A.7, App. E.1)
+  n: 64                      # 64×64 grid
+  spacing: 20.0              # nm per pixel
+  z0: 20.0                   # NV standoff [nm]
+  gamma: 0.5                 # Lorentzian linewidth [GHz] (App. A.7)
+  larmor_band: [1.5, 2.5]    # ω_L band [GHz] (App. E.1)
+  freq_range: [1.0, 3.0]     # readout band [GHz] = band ± 2γ (paper states only "50 frequencies")
+  n_freq: 50
+  units: normalized          # kernel peak = 1 (physical: SI with μ0 = 4π·1e-7)
+  length_scale: 1.0e-9       # metres per domain unit (physical units only)
+  nv_axis: [0.0, 0.0, 1.0]
+  # data (App. E.1): F3 direct simulator, float64, 1 % noise of each sample's dynamic range
+  scene: medium/medium
+  data_operator: F3
+  noise_std: 0.01
+  amp_range: [0.5, 1.0]
+  counts: {few: [1, 3], medium: [4, 8], many: [9, 15]}          # sources per class
+  separations: {close: [2.0, 3.0], medium: [3.0, 5.0], far: [5.0, .inf]}  # NN distance / z0
+  margin_z0: 3.0
+  min_sep_px: 2.0
+  source_width: 0.0          # single-pixel sources
+  # inversion operator (§3.1)
+  mode: F2
+  # neural field (Tab. 5, Eq. 5, Eq. 26, Eq. 27)
+  hidden: 320
+  depth: 5                   # 5 hidden + output = 6 fully connected layers, 4.44e5 params (Tab. 5)
+  skip_at: 3
+  activation: tanh
+  n_octaves: 12
+  tau: 0.3                   # support mask threshold (Eq. 26)
+  larmor_fill: null          # null = band centre outside the support (0.0 = literal Eq. 26)
+  out_init_scale: 0.1        # output-layer init scale (near-uniform initial density)
+  init_seed: 0               # network init seed when none is given (runs use their seed)
+  # optimizer (Tab. 5)
+  optimizer: adamw
+  weight_decay: 1.0e-4
+  grad_clip: 1.0
+  # curriculum (Tab. 6): 32² 3000 steps @ 1e-3 -> 64² 7000 steps @ 5e-4, cosine to 1 %, β reset
+  steps: [3000, 7000]
+  lr: 1.0e-3
+  lr_decay: 0.5
+  lr_min_ratio: 0.01
+  coarse_factor: 2
+  anneal_fraction: 1.0
+  anneal_reset: true         # β -> 0 at each stage start (Tab. 6); false helps short budgets
+  restarts: 1
+  stage_loss_weights:        # App. D.4: stage 2 replaces D by R_nm as the primary fidelity
+    - null
+    - {log_mse: 0.0, noise_map: 2.0}
+  # losses (Tab. 7)
+  w_log_mse: 2.0             # D, log-MSE on max-normalized noise maps (Eq. 19)
+  w_noise_map: 0.5           # R_nm
+  w_direct_density: 0.1      # R_ds
+  w_sparsity: 1.0e-2         # ℓ1 "sparsity" prior
+  w_l1: 1.0e-3               # ℓ1 regularizer
+  w_tv: 1.0e-3               # anisotropic TV
+  w_spectrum: 0.0            # optional per-frequency fidelity (not in the paper)
+  log_eps: null              # null = paper 1e-10 if noiseless, else the noise floor of N̂
+  log_eps_noise_mult: 1.0
+  # post-processing & metrics (Eq. 30, App. E.3)
+  scale_correction: true
+  match_radius: 2.0
+  peak_threshold: 0.05
+  swd_projections: 128
+  gmsd_c: 0.0026
+  # Tikhonov baseline (App. E.2)
+  grid_steps: 5000
+  grid_lr: 5.0e-3
+  grid_weight_decay: 1.0e-5
+  grid_l2: 1.0e-3
+  grid_tv: 1.0e-3
+  grid_init: 0.35
+run:
+  seed: 0
+  device: auto
+  methods: [netmy, f1, grid, grid_f1]   # Tab. 1: NeTMY and Tikhonov under F2 and F1
+  out: runs/nv_relaxometry_paper

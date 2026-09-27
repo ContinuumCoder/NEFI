@@ -1,0 +1,27 @@
+# NV current-density imaging — local smoke / gallery run (CPU, ~2-4 s).
+# 32×32 px of 0.25 μm, standoff z0 = 1.0 μm (4 px: B_z is a smooth, visibly smeared, signed map of
+# the thin current paths), curriculum 16² (200 steps) → 32² (400 steps).
+# Data: direct Biot–Savart summation on a 64×64 source grid in float64 (inverse-crime guard).
+# Usage:  python examples/current_density.py --config configs/current_density_smoke.yaml
+instance:
+  type: current_density
+  n: 32
+  pixel: 0.25                # μm
+  z0: 1.0                    # μm (4 px; the full config images at z0 = 2 px)
+  scene: wires               # wires | loops | branching
+  width_px: [1.0, 1.5]       # Gaussian std of the current profile
+  noise_std: 0.01            # relative to max |B_z|
+  supersample: 2
+  hidden: 64
+  depth: 3
+  n_octaves: 4
+  activation: tanh
+  steps: [200, 400]
+  lr: 0.01
+  tv: 1.0e-3                 # piecewise-constant stream function = sharp current paths
+  grid_lr: 0.05
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid, fourier]
+  out: runs/current_density_smoke

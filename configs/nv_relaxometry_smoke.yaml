@@ -1,0 +1,28 @@
+# NeTMY NV relaxometry — local smoke / gallery run (CPU, a few seconds).
+# 24×24 grid at 20 nm with the NV array at z0 = 60 nm (3 px; paper: 1 px): the dipolar power kernel
+# is ≈ 0.9 z0 wide, so 3-5 sources 1-1.5 z0 apart merge into one blob in the measured noise map and
+# the inversion has to separate them. Everything not listed takes the paper default of
+# nefi.instances.nv_relaxometry.NVRelaxometryConfig (see configs/nv_relaxometry_paper.yaml).
+# Usage:  python examples/nv_relaxometry.py --config configs/nv_relaxometry_smoke.yaml
+instance:
+  type: nv_relaxometry
+  n: 24                      # 24×24 grid at 20 nm (paper: 64)
+  z0: 60.0                   # nm, standoff = 3 px (paper: 20 nm = 1 px)
+  scene: few/close
+  counts: {few: [3, 5], medium: [4, 8], many: [9, 15]}                      # "few" = 3-5 here
+  separations: {close: [1.0, 1.5], medium: [1.5, 2.5], far: [2.5, .inf]}   # NN distance / z0
+  margin_z0: 1.5             # keep sources >= 1.5 z0 (4.5 px) from the boundary
+  # tiny model + curriculum: 12×12 (40 steps) -> 24×24 (60 steps)
+  hidden: 96
+  depth: 3
+  n_octaves: 5               # K = 5 octaves resolve single-pixel sources on 24 px (paper: 12 on 64)
+  steps: [40, 60]
+  lr: 0.02                   # a short budget needs a larger step than the paper's 1e-3
+  anneal_fraction: 0.5       # all bands active for the second half of each stage (paper: 1.0)
+  w_direct_density: 0.0      # R_ds pulls ρ² toward the observed (3 px-blurred) noise map: off here
+  grid_steps: 200            # Tikhonov baseline budget (paper: 5000)
+run:
+  seed: 0
+  device: auto
+  methods: [netmy]           # add grid, f1, grid_f1 for the Tab. 1 cross-fidelity comparison
+  out: runs/nv_relaxometry_smoke

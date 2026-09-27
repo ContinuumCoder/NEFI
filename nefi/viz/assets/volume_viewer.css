@@ -1,0 +1,70 @@
+/* nefi volume viewer (nefi.viz.interactive). Colours follow the report tokens (--surface, --ink,
+   ...) when present, so the viewer matches light and dark report pages. */
+.nefi-vv {
+  --vv-bg: var(--surface, #fcfcfb);
+  --vv-ink: var(--ink, #0b0b0b);
+  --vv-ink2: var(--ink2, #52514e);
+  --vv-muted: var(--muted, #898781);
+  --vv-line: var(--hairline, #e1e0d9);
+  --vv-edge: var(--axis, #c3c2b7);
+  --vv-accent: var(--accent, #2a78d6);
+  --vv-bad: #dddcd6;
+  border: 1px solid var(--vv-line);
+  border-radius: 8px;
+  background: var(--vv-bg);
+  color: var(--vv-ink);
+  padding: 8px;
+  margin: 10px 0;
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  .nefi-vv { --vv-bad: #3a3a37; }
+}
+.nefi-vv-title { font-weight: 600; margin: 0 0 6px; }
+.nefi-vv-panels { display: flex; flex-wrap: wrap; gap: 8px; }
+.nefi-vv-panel { flex: 1 1 280px; min-width: 0; }
+.nefi-vv-cap { font-size: 12px; color: var(--vv-ink2); margin-bottom: 3px; }
+.nefi-vv-cap b, .nefi-vv-cap span {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nefi-vv-cap b { color: var(--vv-ink); font-weight: 600; }
+.nefi-vv canvas {
+  display: block; width: 100%; height: var(--vv-h, 420px); max-height: 75vh;
+  touch-action: none; cursor: grab; border-radius: 6px; background: var(--vv-bg); outline: none;
+  border: 1px solid var(--vv-line);
+}
+.nefi-vv canvas:focus-visible { box-shadow: 0 0 0 2px var(--vv-accent); }
+.nefi-vv-controls {
+  display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-top: 8px;
+  font-size: 12px;
+}
+.nefi-vv-group { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.nefi-vv-lab { color: var(--vv-muted); }
+.nefi-vv input[type="range"] { width: 120px; accent-color: var(--vv-accent); }
+.nefi-vv input[type="checkbox"] { accent-color: var(--vv-accent); }
+.nefi-vv select, .nefi-vv button {
+  font: inherit; font-size: 12px; color: var(--vv-ink); background: var(--vv-bg);
+  border: 1px solid var(--vv-edge); border-radius: 6px; padding: 2px 8px; cursor: pointer;
+}
+.nefi-vv button:hover, .nefi-vv select:hover { border-color: var(--vv-accent); }
+.nefi-vv-val { font-variant-numeric: tabular-nums; color: var(--vv-ink2); }
+.nefi-vv-cbar {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px;
+  flex-wrap: wrap;
+}
+.nefi-vv-grad {
+  position: relative; flex: 0 1 260px; min-width: 120px; height: 10px; border-radius: 3px;
+  border: 1px solid var(--vv-line);
+}
+.nefi-vv-mark {
+  position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px;
+  background: var(--vv-ink); border-radius: 1px;
+}
+.nefi-vv-mark.alt { background: var(--vv-accent); }
+.nefi-vv-info, .nefi-vv-help, .nefi-vv-note {
+  font-size: 12px; color: var(--vv-muted); margin-top: 6px; overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .nefi-vv canvas { height: min(var(--vv-h, 420px), 60vh); }
+  .nefi-vv input[type="range"] { width: 96px; }
+}

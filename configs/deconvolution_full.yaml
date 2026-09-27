@@ -1,0 +1,51 @@
+# deconvolution — production-scale run (GPU recommended): 64×64 images, the tuned defaults of
+# DeconvolutionConfig with a 3× longer curriculum (32² → 64²) and full-size baselines.
+# Validated on CPU at (300, 600) steps: phantom PSNR 33.6 dB / SSIM 0.981 (blurred 24.3 dB,
+# Wiener 27.7 dB). Usage:  python examples/deconvolution.py --config configs/deconvolution_full.yaml
+#                          nefi bench configs/deconvolution_full.yaml --n 8 --seeds 0,1,2
+instance: deconvolution
+config:
+  n: 64
+  extent: 1.0
+  scene: phantom
+  psf: gaussian
+  psf_sigma: 0.02            # 1.28 px
+  motion_length: 0.1         # used with psf: motion (angle in degrees below)
+  motion_angle: 30.0
+  disk_radius: 0.04          # used with psf: disk
+  noise: gaussian
+  noise_std: 0.01            # relative to the clean image maximum
+  peak_counts: 200.0         # used with noise: poisson (photon counts at unit intensity)
+  background_counts: 1.0
+  supersample: 2             # data: same physics on a 2x grid, float64, area-averaged
+  head: softplus             # softplus | bounded (Bounded(0, 1))
+  init_value: 0.05
+  data_loss: auto            # mse for Gaussian, poisson_nll for Poisson noise
+  tv: 1.0e-4
+  l1: 0.0
+  hidden: 128
+  depth: 4
+  skip_at: 2
+  n_octaves: 7
+  activation: tanh
+  steps: [1200, 2400]
+  lr: 2.0e-2
+  lr_decay: 0.5
+  grid_lr: 5.0e-2
+  dd_lr: 5.0e-3
+  dd_width: 128              # NeTMY App. E.2: 5 stages × 128 channels
+  dd_stages: 5
+  splat_lr: 3.0e-2
+  splat_primitives: 64       # NeTMY App. E.2: K = 64, cap 128
+  splat_max_primitives: 128
+  admm_mu: 0.1
+  admm_l1: 1.0e-3
+  admm_lr: 2.0e-2
+  admm_inner: 30             # NeTMY App. E.2: 30 inner × 200 outer
+  admm_outer: 200
+  admm_adaptive: true
+run:
+  seed: 0
+  device: auto
+  methods: [neural, wiener, grid, admm, deep_decoder, gaussian_splat]
+  out: runs/deconvolution_full

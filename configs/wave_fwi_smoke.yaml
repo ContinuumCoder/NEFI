@@ -1,0 +1,45 @@
+# wave_fwi — local smoke / gallery run (CPU, ~10-20 s): 24×24 sound-speed map on [0, 1]² km,
+# "surround" acquisition with 6 Ricker sources (4 Hz) and 32 receivers on all four sides, traces of
+# source–receiver pairs closer than 0.3 km muted (near-field modeling error), 61 trace samples
+# (0.96 s, 120 leapfrog steps), PML absorbing layer; curriculum 12² low-pass (≤ 5 Hz) → 24² full
+# band, 150 + 250 steps. These are the defaults of nefi.instances.wave_fwi.WaveFWIConfig.
+# Usage:  python examples/wave_fwi.py --config configs/wave_fwi_smoke.yaml
+#         nefi run wave_fwi --smoke
+instance: wave_fwi
+config:
+  n: 24
+  extent: 1.0                # km
+  scene: smooth_anomaly      # smooth_anomaly | layered | scatterers
+  c_background: 2.0          # km/s (initial model)
+  c_min: 1.5
+  c_max: 2.5                 # also the CFL bound
+  anomaly: 0.4
+  geometry: surround         # transmission | reflection | surround
+  n_sources: 6
+  n_receivers: 32
+  margin: 0.08
+  min_offset: 0.3            # km, near-offset mute (masked traces)
+  f0: 4.0                    # Hz
+  t_max: 0.96                # s
+  dt_obs: 0.016              # s
+  order: 4
+  absorbing: pml
+  absorb_width: 0.25         # km (6 cells)
+  absorb_R: 1.0e-3
+  courant: 0.9
+  grad_mode: autograd        # plain BPTT is cheapest at this size
+  noise_std: 0.005           # relative to max |trace|
+  supersample: 2             # data from a 2x finer float64 grid (inverse-crime guard)
+  hidden: 64
+  depth: 4
+  n_octaves: 3               # 4 cycles over the domain: smooth updates, compact anomalies
+  tv: 1.0e-3
+  multiscale_frequency: true
+  f_low: 5.0                 # Hz, stage-1 low-pass
+  steps: [150, 250]
+  lr: 2.0e-2
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid]
+  out: runs/wave_fwi_smoke

@@ -1,0 +1,44 @@
+# wave_fwi — production-scale run (CUDA server): 96×96 map on [0, 1]² km, 8 sources and 48 receivers
+# on all four sides ("surround"), 8 Hz Ricker, 1.2 s records at 4 ms (≈ 600-900 leapfrog steps per
+# shot), block-checkpointed adjoint (memory ∝ sqrt(n_steps)), 48² low-pass (≤ 6 Hz) → 96² full band.
+# Usage (server):  python examples/wave_fwi.py --config configs/wave_fwi_full.yaml --device cuda
+#                  nefi bench configs/wave_fwi_full.yaml --n 8 --seeds 0,1,2
+instance: wave_fwi
+config:
+  n: 96
+  extent: 1.0
+  scene: smooth_anomaly
+  c_background: 2.0
+  c_min: 1.5
+  c_max: 2.5
+  anomaly: 0.4
+  geometry: surround
+  n_sources: 8
+  n_receivers: 48
+  margin: 0.05
+  min_offset: 0.0            # km, no near-offset mute (the smoke preset mutes < 0.3 km)
+  f0: 8.0
+  t_max: 1.2
+  dt_obs: 0.004
+  order: 4
+  absorbing: pml
+  absorb_width: 0.12         # km (≈ 12 cells, 0.5 λ at 8 Hz / 2 km/s)
+  absorb_R: 1.0e-3
+  courant: 0.9
+  grad_mode: checkpoint      # O(sqrt(n_steps)) activation memory
+  source_batch: null         # all 8 shots in one batch; set 2-4 if memory-bound
+  noise_std: 0.005
+  supersample: 2
+  hidden: 256
+  depth: 6
+  n_octaves: 6               # ≈ 32 cycles: resolves λ/2 at 2.5 f0 (5 cells)
+  tv: 1.0e-4
+  multiscale_frequency: true
+  f_low: 6.0
+  steps: [1500, 3500]
+  lr: 1.0e-3
+run:
+  seed: 0
+  device: cuda
+  methods: [neural, grid]
+  out: runs/wave_fwi_full

@@ -1,0 +1,48 @@
+# NV current-density imaging — full-scale settings for the CUDA servers.
+# 128×128 px of 0.1 μm (12.8 μm field of view), standoff z0 = 0.2 μm, curriculum 64² → 128².
+# Usage (CUDA server):
+#   python examples/current_density.py --config configs/current_density_full.yaml --device cuda
+instance:
+  type: current_density
+  # geometry & physics (units: μm, mA, μT → μ0 = 400π μT·μm/mA)
+  n: 128
+  pixel: 0.1
+  z0: 0.2
+  nv_layer: 0.0
+  length_unit: um
+  current_unit: mA
+  field_unit: uT
+  pad_factor: 2.0
+  # scenes
+  scene: branching           # wires | loops | branching
+  current: [0.5, 1.5]
+  width_px: [1.0, 1.5]
+  margin: 0.15
+  # data (direct Biot–Savart on a 2× finer source grid, float64)
+  noise_std: 0.01
+  supersample: 2
+  # neural field
+  hidden: 256
+  depth: 6
+  skip_at: 3
+  n_octaves: 8
+  activation: tanh
+  # curriculum 64² → 128²
+  multiscale: true
+  steps: [1000, 3000]
+  lr: 3.0e-3
+  lr_decay: 0.5
+  anneal_fraction: 0.5
+  # losses
+  data_loss: relative_mse
+  tv: 1.0e-4
+  # baselines
+  grid_lr: 0.05
+  fourier_reg: 1.0e-3
+  fourier_window: hanning
+  fourier_cutoff: null       # λ_c; null → k_c z0 = 3
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid, fourier]
+  out: runs/current_density_full

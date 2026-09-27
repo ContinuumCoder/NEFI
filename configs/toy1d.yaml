@@ -1,0 +1,26 @@
+# toy1d — 1-D blurred-signal recovery (the tutorial / CI instance).
+# Usage:  nefi run configs/toy1d.yaml [--device cuda] [--plot]
+#         nefi bench configs/toy1d.yaml --methods neural,grid --n 4 --seeds 0,1,2
+# Layout: `instance` + `config` (fields of nefi.instances.toy1d.Toy1DConfig), optional
+# `curriculum` (nefi.solve.Curriculum as a dict; default: the instance's 2-stage multiscale),
+# optional `solver` (nefi.solve.Solver keyword arguments) and `run` (CLI defaults).
+instance: toy1d
+config:
+  n: 128               # grid points on [0, 1]
+  sigma: 0.02          # Gaussian blur std (physical units)
+  noise_std: 0.01      # relative to the clean signal's max
+  scene: bumps         # bumps | spikes | mixed
+  supersample: 4       # data simulated on a 4x finer grid in float64 (inverse-crime guard)
+  hidden: 64
+  depth: 4
+  n_octaves: 6
+  steps: [300, 600]    # coarse (64) -> fine (128) stages
+  lr: 3.0e-3
+  tv: 1.0e-4
+  l1: 0.0
+solver:
+  nan_guard: true
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid]

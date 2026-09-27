@@ -1,0 +1,52 @@
+# ct3d — production-scale run (CUDA server): 64×64×64 attenuation volume from 30 views over 180°
+# (a sparse scan: ≈ 1/3 of the ≈ π/2·n views an unregularized reconstruction needs), all fields of
+# CT3DConfig spelled out, a 3× longer curriculum than the defaults. Data: Radon on a 2× grid
+# (128³, 2 detector bins per fine pixel = 4 sub-rays per native bin), float64, area-averaged.
+# CPU cost at this size ≈ 0.5-1 s per native step (field MLP on 262 k points); set
+# angle_range: 120 for the limited-angle class. Suggested paper scale: n 128, n_z 128, hidden 256,
+# depth 6, n_octaves 7 (≈ 2M points per step; view_batch bounds the projector memory).
+# Usage (server):  python examples/ct3d.py --config configs/ct3d_full.yaml --device cuda
+#                  nefi bench configs/ct3d_full.yaml --n 8 --seeds 0,1,2 --classes all
+instance: ct3d
+config:
+  n: 64
+  n_z: 64
+  extent: 1.0                # lateral side of the square field of view
+  height: 1.0                # axial extent (z = rotation axis)
+  n_views: 30
+  angle_range: 180.0         # degrees; < 180 = limited-angle tomography
+  det_per_pixel: 1.0
+  samples_per_pixel: 1.0
+  view_batch: null           # null = automatic chunking (≤ 2^24 gathered samples per call)
+  scene: ellipsoids          # ellipsoids | blobs | piecewise
+  render_factor: 2           # sub-samples per voxel and axis (cell-averaged phantoms)
+  noise_std: 0.01            # relative to the clean sinogram maximum
+  supersample: 2             # data: 2x grid, float64, area-averaged bins and slices
+  data_det_per_pixel: 2.0
+  head: bounded              # Bounded(0, 1) | softplus
+  init_value: 0.1
+  tv: 1.0e-5
+  tv_eps: 1.0e-3
+  l1: 0.0
+  hidden: 128
+  depth: 4
+  skip_at: 2
+  n_octaves: 6
+  activation: tanh
+  steps: [1500, 3000]
+  lr: 1.0e-2
+  lr_decay: 0.5
+  anneal_fraction: 0.3
+  min_coarse: 8
+  iou_tau: 0.25              # feature IoU of {mu > iou_tau}
+  fbp_filter: ramp           # ramp | shepp-logan | cosine | hann
+  fbp_clip: true
+  grid_lr: 5.0e-2
+  dd_lr: 5.0e-3
+  dd_width: 128
+  dd_stages: 4
+run:
+  seed: 0
+  device: auto
+  methods: [neural, fbp3d, grid, deep_decoder]
+  out: runs/ct3d_full

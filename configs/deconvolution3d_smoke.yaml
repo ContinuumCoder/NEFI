@@ -1,0 +1,25 @@
+# deconvolution3d — tiny local smoke run (CPU, ≈ 8 s on one core): 32×32×16 z-stack
+# (0.1 µm pixels, 0.2 µm z-steps), Gaussian PSF σ_xy = 0.12 µm, σ_z = 3 σ_xy, 1 % Gaussian noise,
+# 16×16×8 → 32×32×16 curriculum with 150 + 250 steps. Identical to PRESETS["smoke"] of
+# nefi.instances.deconvolution3d; everything not listed takes the default of Deconvolution3DConfig.
+# Usage:  python examples/deconvolution3d.py --config configs/deconvolution3d_smoke.yaml
+#         nefi run deconvolution3d --smoke
+instance: deconvolution3d
+config:
+  n: 32
+  n_z: 16
+  scene: filaments           # filaments | puncta | cells
+  noise: gaussian            # gaussian | poisson
+  hidden: 64
+  depth: 3
+  skip_at: 2
+  n_octaves: 5
+  steps: [150, 250]
+  lr: 2.0e-2
+  dd_width: 32
+  dd_stages: 3
+run:
+  seed: 0
+  device: auto
+  methods: [neural, richardson_lucy, wiener3d, grid, deep_decoder]
+  out: runs/deconvolution3d_smoke

@@ -1,0 +1,37 @@
+# reaction_diffusion — tiny local smoke run (CPU, ~5-10 s): recover the Gray–Scott feed rate F(x) on
+# a 32×32 grid over [0, 0.64]² (Pearson units, Du = 2e-5, Dv = 1e-5, k = 0.06) from snapshots of u
+# and v at t = 25, 50, 75, 100 (explicit Euler, dt = 1); data from a 4x substepped float64
+# simulation + 1 % noise; 16² → 32² curriculum (100 + 150 steps).
+# Everything not listed takes the default of nefi.instances.reaction_diffusion.ReactionDiffusionConfig.
+# Usage:  python examples/reaction_diffusion.py --config configs/reaction_diffusion_smoke.yaml
+#         nefi run reaction_diffusion --smoke
+instance: reaction_diffusion
+config:
+  n: 32
+  extent: 0.64
+  scene: blobs               # blobs | stripes
+  F_background: 0.045        # initial model
+  F_amplitude: 0.015
+  F_min: 0.02
+  F_max: 0.07
+  k: 0.06
+  Du: 2.0e-5
+  Dv: 1.0e-5
+  dt: 1.0
+  obs_times: [25.0, 50.0, 75.0, 100.0]
+  observe: [u, v]
+  boundary: neumann
+  noise_std: 0.01
+  gen_substeps: 4            # inverse-crime guard: 4x smaller generator time step, float64
+  grad_mode: autograd
+  hidden: 64
+  depth: 4
+  n_octaves: 6
+  tv: 1.0e-4
+  steps: [100, 150]
+  lr: 1.0e-2
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid]
+  out: runs/reaction_diffusion_smoke

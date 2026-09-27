@@ -1,0 +1,23 @@
+# dot3d — tiny local smoke run (CPU, ≈ 7 s on one core): 40 × 40 × 20 mm slab on 20×20×10
+# voxels (2 mm), μs' = 1/mm, μa = 0.01/mm, one absorbing inclusion; 3×3 sources and 10×10 detector
+# pixels on the top face, readings calibrated by the homogeneous reference, 1 % noise;
+# 10×10×6 → 20×20×10 curriculum with 150 + 200 steps. Identical to PRESETS["smoke"] of
+# nefi.instances.dot3d; everything not listed takes the default of DOT3DConfig (dot3d_full.yaml).
+# Usage:  python examples/dot3d.py --config configs/dot3d_smoke.yaml
+#         nefi run dot3d --smoke
+instance: dot3d
+config:
+  grid: [20, 20, 10]
+  detector_grid: [10, 10]
+  scene: single              # single | multi | deep
+  hidden: 64
+  depth: 3
+  skip_at: 2
+  steps: [150, 200]
+  lr: 1.0e-2
+  dd_width: 32
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid, deep_decoder]
+  out: runs/dot3d_smoke

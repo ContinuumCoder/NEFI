@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://continuumcoder.github.io/NEFI/
+    about: Tutorials, guides, the instance catalogue and the API reference.
+  - name: FAQ — failure modes and what to try
+    url: https://continuumcoder.github.io/NEFI/faq/
+    about: Center collapse, cross artifacts, leakage, stalls, the data-fit paradox — check here first.

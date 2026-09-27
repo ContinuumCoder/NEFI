@@ -1,0 +1,54 @@
+# deconvolution3d — production-scale run (CUDA server): 64×64×32 z-stack of 6.4 × 6.4 × 6.4 µm
+# (0.1 µm pixels, 0.2 µm z-steps), every field of Deconvolution3DConfig spelled out, a 2.5× longer
+# curriculum than the defaults. psf_extent: same truncates the (compact) Gaussian PSF to the stack
+# size, which cuts the FFT size ≈ 3× vs the exact full linear support. For photon-limited data set
+# noise: poisson (peak_counts / background_counts; the data term becomes the Poisson NLL).
+# Usage (server):  python examples/deconvolution3d.py --config configs/deconvolution3d_full.yaml --device cuda
+#                  nefi bench configs/deconvolution3d_full.yaml --n 8 --seeds 0,1,2 --classes all
+instance: deconvolution3d
+config:
+  n: 64
+  n_z: 32
+  pixel_size: 0.1            # µm, lateral voxel
+  z_step: 0.2                # µm, axial voxel
+  scene: filaments           # filaments | puncta | cells
+  render_factor: 2
+  filament_sigma: [0.06, 0.09]   # µm, Gaussian cross-section of the fibres
+  puncta_sigma: [0.04, 0.07]     # µm, sub-voxel point sources (exact erf cell averages)
+  membrane_width: 0.06           # µm
+  psf_sigma_xy: 0.12         # µm (1.2 px)
+  psf_axial_ratio: 3.0       # σ_z = 3 σ_xy (widefield axial elongation)
+  psf_extent: same           # full (exact linear support) | same (truncated to the stack)
+  noise: gaussian            # gaussian | poisson
+  noise_std: 0.01            # relative to the clean stack maximum
+  peak_counts: 200.0         # photons at unit intensity (poisson)
+  background_counts: 2.0
+  supersample: 2             # data: same PSF on a 2x grid, float64, area-averaged
+  head: softplus             # softplus | bounded
+  init_value: 0.05
+  data_loss: auto            # mse (gaussian) / poisson_nll (poisson)
+  tv: 1.0e-4
+  tv_eps: 1.0e-3
+  l1: 0.0                    # 1e-3 for the puncta class (sparsity)
+  hidden: 128
+  depth: 4
+  skip_at: 2
+  n_octaves: 6
+  activation: tanh
+  steps: [1500, 3000]
+  lr: 1.0e-2
+  lr_decay: 0.5
+  anneal_fraction: 0.3
+  min_coarse: 8
+  grid_lr: 5.0e-2
+  dd_lr: 5.0e-3
+  dd_width: 128
+  dd_stages: 4
+  wiener_snr: 0.0            # <= 0: SNR by the discrepancy principle
+  wiener_tau: 1.0
+  rl_iters: 30               # Richardson-Lucy EM iterations (early stopping = regularization)
+run:
+  seed: 0
+  device: auto
+  methods: [neural, richardson_lucy, wiener3d, grid, deep_decoder]
+  out: runs/deconvolution3d_full

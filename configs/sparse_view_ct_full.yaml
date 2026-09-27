@@ -1,0 +1,39 @@
+# sparse_view_ct — production-scale run (GPU recommended): 64×64 phantoms from 20 views, tuned
+# defaults of SparseViewCTConfig with a 3× longer curriculum. Validated on CPU at (300, 600)
+# steps: Shepp-like PSNR 28.1 dB / SSIM 0.91 (FBP 21.2 dB).
+# Usage:  python examples/sparse_view_ct.py --config configs/sparse_view_ct_full.yaml
+instance: sparse_view_ct
+config:
+  n: 64
+  extent: 1.0
+  n_views: 20
+  angle_range: 180.0         # degrees; < 180 gives a limited-angle problem
+  det_per_pixel: 1.0
+  samples_per_pixel: 1.0
+  scene: shepp
+  noise_std: 0.01            # relative to the clean sinogram maximum
+  supersample: 2             # data: Radon on a 2x grid, 2 bins per fine pixel, float64
+  data_det_per_pixel: 2.0
+  head: bounded              # Bounded(0, 1)
+  init_value: 0.1
+  tv: 1.0e-5
+  l1: 0.0
+  hidden: 128
+  depth: 4
+  skip_at: 2
+  n_octaves: 7
+  activation: tanh
+  steps: [1200, 2400]
+  lr: 1.0e-2
+  lr_decay: 0.5
+  fbp_filter: ramp           # ramp | shepp-logan | cosine | hann
+  fbp_clip: true
+  grid_lr: 5.0e-2
+  dd_lr: 5.0e-3
+  dd_width: 128
+  dd_stages: 5
+run:
+  seed: 0
+  device: auto
+  methods: [neural, fbp, grid, deep_decoder]
+  out: runs/sparse_view_ct_full

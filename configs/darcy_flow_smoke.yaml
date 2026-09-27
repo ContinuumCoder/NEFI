@@ -1,0 +1,26 @@
+# Darcy flow — tiny local smoke run (CPU, a few seconds).
+# 16×16 grid, 4 injector/producer configurations, 6×6 pressure gauges, 50 + 100 steps.
+# Everything not listed takes the default of nefi.instances.darcy_flow.DarcyConfig.
+# Usage:  python examples/darcy_flow.py --config configs/darcy_flow_smoke.yaml
+instance:
+  type: darcy_flow
+  n: 16
+  n_configs: 4
+  n_sensors: 6
+  scene: smooth              # smooth | channels
+  channel_width: [0.12, 0.16]  # >= 2 cells at 16² (channels class)
+  noise_std: 2.0e-3
+  supersample: 2
+  hidden: 64
+  depth: 3
+  n_octaves: 3
+  activation: relu
+  steps: [50, 100]
+  lr: 0.01
+  tv: 1.0e-5
+  grid_lr: 0.05
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid]
+  out: runs/darcy_flow_smoke

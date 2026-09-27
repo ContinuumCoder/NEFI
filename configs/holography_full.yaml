@@ -1,0 +1,28 @@
+# holography — production-scale run (CUDA server): 128×128 phase map (0.5 μm pixels), λ = 0.5 μm,
+# four distances 20-130 μm (Fresnel numbers ~0.01-0.1 per pixel), 2x float64 data simulation.
+# Usage (server):  python examples/holography.py --config configs/holography_full.yaml --device cuda
+#                  nefi bench configs/holography_full.yaml --n 8 --seeds 0,1,2
+instance: holography
+config:
+  n: 128
+  pixel_size: 0.5
+  wavelength: 0.5
+  distances: [20.0, 45.0, 80.0, 130.0]
+  scene: cells
+  phase_amplitude: 1.0
+  noise_std: 0.01
+  supersample: 2
+  pad_factor: 2.0
+  pad_mode: edge
+  hidden: 256
+  depth: 6
+  n_octaves: 7               # 64 cycles = Nyquist at 128 px
+  tv: 1.0e-4
+  steps: [1500, 3500]
+  lr: 2.0e-3
+  gs_iterations: 300
+run:
+  seed: 0
+  device: cuda
+  methods: [neural, gerchberg_saxton, grid]
+  out: runs/holography_full

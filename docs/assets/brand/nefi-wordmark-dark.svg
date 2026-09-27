@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 174.8 64" width="350" height="128" role="img" aria-label="nefi">
+  <title>nefi</title>
+  <circle cx="30.50" cy="33.50" r="24.00" fill="none" stroke="#a26bf0" stroke-width="4.0"/>
+  <circle cx="34.04" cy="29.96" r="13.00" fill="none" stroke="#e8578f" stroke-width="4.0"/>
+  <circle cx="35.45" cy="28.55" r="5.00" fill="#fdae61"/>
+  <g fill="none" stroke="#f6f5fb" stroke-width="5.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M80.00 50.00V25.00"/>
+  <path d="M80.00 35.00A10.0 10.0 0 0 1 100.00 35.00V50.00"/>
+  <path d="M109.50 37.50H134.50A12.50 12.50 0 1 0 131.29 45.86"/>
+  <path d="M149.00 50.00V18.50A8.0 8.0 0 0 1 157.00 10.50H160.00"/>
+  <path d="M142.00 26.00H157.50"/>
+  <path d="M168.00 50.00V25.00"/>
+  </g>
+  <circle cx="168.00" cy="12.60" r="3.47" fill="#f6f5fb"/>
+</svg>

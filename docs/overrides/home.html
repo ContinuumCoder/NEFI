@@ -1,0 +1,64 @@
+{#- nefi site: landing page. The hero sits under the navigation tabs; the rest of the page is
+    docs/index.md (feature grid, gallery strip, papers, install). -#}
+{% extends "main.html" %}
+
+{% block htmltitle %}
+  <title>nefi — Neural-Field Inversion</title>
+{% endblock %}
+
+{% block tabs %}
+  {{ super() }}
+  <section class="nf-hero" aria-label="nefi — Neural-Field Inversion">
+    <div class="md-grid nf-hero__grid">
+      <div class="nf-hero__copy">
+        <p class="nf-hero__eyebrow">
+          {% include ".icons/nefi/mark.svg" %}
+          Neural-Field Inversion &middot; CAB Lab, Princeton University
+        </p>
+        <h1 class="nf-hero__title">
+          Physics-faithful inverse problems,
+          <span class="nf-grad">solved from a single measurement.</span>
+        </h1>
+        <p class="nf-hero__lead">
+          nefi recovers hidden fields such as spin densities, conductivities, sound speeds and
+          thermal diffusivities from one measurement and a differentiable model of the instrument.
+          No training data is needed. The unknown is represented by a coordinate neural field, the
+          physics is enforced as a <em>hard constraint</em>, and an adaptive coarse-to-fine schedule
+          fits the field to the data while built-in diagnostics report how far the result can be
+          trusted.
+        </p>
+        <div class="nf-hero__cta">
+          <a href="{{ 'getting-started/' | url }}" class="md-button md-button--primary">Get started</a>
+          <a href="{{ 'gallery/' | url }}" class="md-button">Gallery</a>
+          <a href="{{ 'research/papers/' | url }}" class="md-button">Papers</a>
+        </div>
+        <div class="nf-hero__install">
+          <span class="nf-prompt">$</span>
+          <code id="nf-install">pip install nefi</code>
+          <button class="md-clipboard md-icon" title="Copy to clipboard"
+                  data-clipboard-target="#nf-install"></button>
+        </div>
+      </div>
+      <figure class="nf-hero__visual">
+        <img src="{{ 'assets/hero.png' | url }}" width="1620" height="976"
+             alt="Four inverse problems: NV noise spectra to spin sources, a sparse-view sinogram to an attenuation map, an NV stray-field image to a sheet current, acoustic traces to a sound-speed map">
+        <figcaption>
+          Four of the 17 registered problems, each showing the simulated measurement on the left
+          and the reconstruction on the right. Every system runs on a CPU in under 15&nbsp;s.
+        </figcaption>
+      </figure>
+    </div>
+    <div class="md-grid nf-hero__stats">
+      <div class="nf-stat"><b>17</b><span>registered inverse problems, 1-D to 3-D</span></div>
+      <div class="nf-stat"><b>36</b><span>differentiable forward operators</span></div>
+      <div class="nf-stat"><b>2</b><span>papers generalized: NeTMY &amp; NeFTY</span></div>
+      <div class="nf-stat"><b>20</b><span>lines to bring your own physics</span></div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block content %}
+  <div class="nf-home">
+    {{ page.content }}
+  </div>
+{% endblock %}

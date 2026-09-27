@@ -1,0 +1,7 @@
+# Toolchain of the documentation site (`mkdocs build --strict`, see .github/workflows/pages.yml).
+# The pages are static markdown, so the nefi package itself is not needed to build them, and the
+# build runs offline. Pinned for reproducible builds; update together and re-run a strict build.
+mkdocs==1.6.1
+mkdocs-material==9.7.7
+mkdocs-glightbox==0.5.2
+pymdown-extensions==12.1

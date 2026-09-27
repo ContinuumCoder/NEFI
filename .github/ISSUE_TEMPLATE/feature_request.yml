@@ -1,0 +1,48 @@
+name: Feature request
+description: Suggest an improvement — a new operator, representation, loss, diagnostic, CLI option or documentation page.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: The problem it solves
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you would like nefi to offer. Sketch the API or the command if you have one in mind.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Representations (fields, heads, geometric)
+        - Operators and physics
+        - Losses and priors
+        - Curriculum and solver
+        - Diagnostics
+        - Benchmarking and baselines
+        - Auto-tuning or edge refinement
+        - Visualization
+        - Command line and configuration
+        - Performance
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and references
+      description: Workarounds you tried, related methods, papers.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to contribute this (see CONTRIBUTING.md).

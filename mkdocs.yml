@@ -1,0 +1,266 @@
+# Documentation site of nefi — https://continuumcoder.github.io/NEFI/
+#
+#   pip install -r docs/requirements.txt
+#   mkdocs serve            # live preview at http://127.0.0.1:8000/NEFI/
+#   mkdocs build --strict   # what .github/workflows/pages.yml runs
+#
+# Every page is plain GitHub-flavoured markdown and also reads fine on GitHub. Images and the
+# interactive 3-D viewers under docs/assets/ are rebuilt from the gallery run with
+# `python tools/build_site_assets.py` (and `python tools/build_brand_assets.py` for the logo,
+# favicon, social card and recipe diagram).
+
+site_name: nefi
+site_description: >-
+  Neural-Field Inversion: physics-faithful, label-free inverse problems solved by optimizing a
+  coordinate neural field through a differentiable forward model, one measurement at a time.
+site_author: CAB Lab, Princeton University
+site_url: https://continuumcoder.github.io/NEFI/
+repo_url: https://github.com/ContinuumCoder/NEFI
+repo_name: ContinuumCoder/NEFI
+edit_uri: edit/main/docs/
+docs_dir: docs
+use_directory_urls: true
+copyright: >-
+  Copyright &copy; 2026 CAB Lab, Princeton University &middot;
+  <a href="https://github.com/ContinuumCoder/NEFI/blob/main/LICENSE">MIT License</a>
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  language: en
+  favicon: assets/brand/favicon.svg
+  icon:
+    logo: nefi/mark
+    repo: fontawesome/brands/github
+    edit: material/pencil-outline
+    view: material/eye-outline
+    admonition:
+      note: octicons/note-16
+      tip: octicons/light-bulb-16
+      info: octicons/info-16
+      warning: octicons/alert-16
+      example: octicons/beaker-16
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme)"
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to system preference
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - navigation.tracking
+    - navigation.path
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/viewers.js
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ContinuumCoder/NEFI
+      name: nefi on GitHub
+    - icon: simple/arxiv
+      link: https://arxiv.org/abs/2605.13988
+      name: NeTMY on arXiv
+    - icon: simple/arxiv
+      link: https://arxiv.org/abs/2603.11045
+      name: NeFTY on arXiv
+
+plugins:
+  - search
+  - glightbox:
+      touchNavigation: true
+      loop: false
+      effect: zoom
+      slide_effect: slide
+      width: 100%
+      height: auto
+      zoomable: true
+      draggable: true
+      skip_classes:
+        - off-glb
+      auto_caption: false
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      options:
+        custom_icons:
+          - docs/overrides/.icons
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: info
+  anchors: warn
+
+exclude_docs: |
+  _paper_*.txt
+  _readme_byop_snippet.md
+  overrides/
+  requirements.txt
+
+nav:
+  - Home: index.md
+  - Get started:
+      - getting-started/index.md
+      - Quickstart: tutorials/01_quickstart.md
+      - Anatomy of a problem: tutorials/02_anatomy_of_a_problem.md
+      - Core concepts: getting-started/concepts.md
+      - FAQ — failure modes: faq.md
+  - Guides:
+      - guides/index.md
+      - Build a problem:
+          - Bring your own problem: byop.md
+          - Operator, field & loss zoo: zoo.md
+          - A new forward operator: tutorials/03_new_forward_operator.md
+          - A new instance: tutorials/04_new_instance.md
+      - Solve it well:
+          - Geometric representations: geometry.md
+          - Auto-tuning: autotune.md
+          - Edge refinement: refinement.md
+          - Robustness & adaptivity: tutorials/08_robustness_and_adaptivity.md
+      - Evaluate:
+          - Diagnostics: tutorials/05_diagnostics.md
+          - Benchmarking: tutorials/06_benchmarking.md
+          - Baselines: baselines.md
+          - Visualization: visualization.md
+          - Limitations and caveats: guides/limitations.md
+      - Scale up:
+          - Performance: performance.md
+          - GPU servers: tutorials/07_running_on_gpu_servers.md
+          - Reproducing the papers: reproduce_papers.md
+  - Gallery:
+      - gallery/index.md
+      - 3-D showcase: gallery/3d.md
+      - Edge refinement: gallery/refinement.md
+      - Baselines: gallery/baselines.md
+      - Performance: gallery/performance.md
+  - Physics:
+      - physics/index.md
+      - Elliptic & magnetostatics: physics_elliptic.md
+      - Wave, scattering, optics & reaction: physics_wave_optics.md
+      - Heat equation (NeFTY): physics/heat.md
+  - Instances:
+      - instances/index.md
+      - The papers:
+          - NV relaxometry (NeTMY): instances/nv_relaxometry.md
+          - Thermal tomography (NeFTY): instances/thermal_tomography.md
+      - Classic imaging:
+          - toy1d: instances/toy1d.md
+          - Deconvolution: instances/deconvolution.md
+          - Sparse-view CT: instances/sparse_view_ct.md
+      - Elliptic PDEs:
+          - Poisson source: instances/poisson_source.md
+          - EIT: instances/eit.md
+          - Darcy flow: instances/darcy_flow.md
+          - Current density (NV): instances/current_density.md
+      - Wave, optics & reaction:
+          - Full-waveform inversion: instances/wave_fwi.md
+          - Diffraction tomography: instances/diffraction_tomography.md
+          - Holography: instances/holography.md
+          - Reaction–diffusion: instances/reaction_diffusion.md
+      - Volumetric (3-D):
+          - 3-D sparse-view CT: instances/ct3d.md
+          - 3-D deconvolution: instances/deconvolution3d.md
+          - Diffuse optical tomography: instances/dot3d.md
+          - Photoacoustic tomography: instances/photoacoustic3d.md
+  - Research:
+      - research/index.md
+      - The two papers: research/papers.md
+      - The representation is the prior: research/thesis.md
+      - Paper → code mapping: paper_mapping.md
+      - Design document: DESIGN.md
+  - Reference:
+      - reference/index.md
+      - API:
+          - API index: api.md
+          - nefi (core): api/core.md
+          - nefi.fields: api/fields.md
+          - nefi.operators: api/operators.md
+          - nefi.physics: api/physics.md
+          - nefi.losses: api/losses.md
+          - nefi.solve: api/solve.md
+          - nefi.metrics: api/metrics.md
+          - nefi.diagnostics: api/diagnostics.md
+          - nefi.bench: api/bench.md
+          - nefi.autotune: api/autotune.md
+          - nefi.baselines: api/baselines.md
+          - nefi.instances: api/instances.md
+          - nefi.viz: api/viz.md
+          - nefi.utils: api/utils.md
+      - Command line: reference/cli.md
+      - Configuration files: reference/config.md
+      - Changelog: reference/changelog.md
+      - Contributing: reference/contributing.md
+      - License & citation: reference/license.md

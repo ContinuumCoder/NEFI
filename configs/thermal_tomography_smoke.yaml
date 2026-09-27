@@ -1,0 +1,34 @@
+# NeFTY thermal tomography — CPU smoke settings (≈ 4 s inversion on a single CPU core).
+# Identical to preset="smoke" of nefi.instances.thermal_tomography (PRESETS["smoke"]); all other
+# fields keep their paper defaults (configs/thermal_tomography_paper.yaml). Also picked up by
+# `nefi run thermal_tomography --smoke`.
+#   python examples/thermal_tomography.py --config configs/thermal_tomography_smoke.yaml
+instance:
+  type: thermal_tomography
+  grid: [16, 16, 6]          # coarse slab grid (Δx = 0.625, Δz = 0.167)
+  n_frames: 30
+  dt: 0.1                    # 30 × 0.1 = 3 time units
+  jacobi_iters: 20           # contraction ≈ 0.55 per sweep at this Δt / spacing
+  flash_width_xy: 4.0
+  n_defects: [1, 2]
+  defect_radius_range: [1.6, 2.4]
+  defect_half_thickness_range: [0.15, 0.25]
+  defect_depth_range: [0.3, 0.6]
+  lateral_margin: 2.5
+  hidden: 64                 # small MLP (paper: 10 × 512)
+  depth: 4
+  skip_at: 2
+  n_octaves: 4
+  steps: 150
+  lr: 3.0e-3
+  lr_schedule: cosine
+  lr_min_ratio: 0.1
+  anneal_steps: 60
+  grid_lr: 3.0e-2
+  pinn_hidden: 64            # soft-PINN baseline, CPU-sized
+  pinn_depth: 4
+  pinn_collocation: 1024
+  pinn_steps: 150
+run:
+  seed: 0
+  device: cpu

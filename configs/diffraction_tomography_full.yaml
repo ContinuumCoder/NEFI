@@ -1,0 +1,30 @@
+# diffraction_tomography — production-scale run (CUDA server): 96×96 contrast on an 8 × 8 μm domain
+# (λ = 1 μm, 12 px per wavelength), 64 illuminations × 192 ring receivers, LS data on a 192² grid.
+# Usage (server):  python examples/diffraction_tomography.py \
+#                      --config configs/diffraction_tomography_full.yaml --device cuda
+#                  nefi bench configs/diffraction_tomography_full.yaml --n 8 --seeds 0,1,2
+instance: diffraction_tomography
+config:
+  n: 96
+  extent: 8.0
+  wavelength: 1.0
+  scene: cells
+  contrast: 0.02
+  n_angles: 64
+  n_receivers: 192
+  receiver_radius: 6.0       # μm (> half-diagonal 5.66 μm)
+  rytov: false
+  noise_std: 0.01
+  supersample: 2
+  ls_iterations: 300
+  hidden: 256
+  depth: 6
+  n_octaves: 7               # 64 cycles ≥ Nyquist at 96 px
+  tv: 1.0e-3
+  steps: [1500, 3500]
+  lr: 2.0e-3
+run:
+  seed: 0
+  device: cuda
+  methods: [neural, backpropagation, grid]
+  out: runs/diffraction_tomography_full

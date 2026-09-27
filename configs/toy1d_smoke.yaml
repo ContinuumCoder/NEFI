@@ -1,0 +1,11 @@
+# toy1d — tiny variant used by `nefi run toy1d --smoke` (and `make smoke`); ~1 s on a CPU.
+# The CLI additionally caps the total number of steps (--smoke-steps, default 40), so the
+# stage lengths below are proportions; a short budget needs a larger step than the default 3e-3.
+instance: toy1d
+config:
+  n: 64
+  hidden: 32
+  depth: 3
+  n_octaves: 5
+  steps: [40, 60]
+  lr: 1.0e-2

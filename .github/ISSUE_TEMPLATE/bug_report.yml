@@ -1,0 +1,55 @@
+name: Bug report
+description: Something crashes, gives wrong numbers, or behaves differently from the documentation.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. A minimal reproduction — ideally a
+        `nefi run <instance> --smoke --set …` command or a few lines of Python — makes it much
+        faster to fix.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: A command or a short script. Use a smoke preset or a tiny grid if you can.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output, traceback or report
+      description: Paste the error, or the relevant part of `metrics.json`, `quick_report` or `diagnose` output.
+      render: text
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `python -c "import nefi, torch, sys; print(nefi.__version__, torch.__version__, sys.version)"`
+      placeholder: "0.1.0 2.4.1 3.12.4"
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - CPU
+        - CUDA
+        - Apple MPS
+        - other
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Ubuntu 22.04 / macOS 15 / Windows 11"

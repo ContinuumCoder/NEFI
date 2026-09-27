@@ -1,0 +1,29 @@
+# deconvolution — tiny local smoke run (CPU, ~5 s): 32×32 phantom, Gaussian PSF (σ = 1.3 px),
+# 1 % Gaussian noise, 16² → 32² curriculum with 150 + 300 steps. Everything not listed takes the
+# default of nefi.instances.deconvolution.DeconvolutionConfig (see deconvolution_full.yaml).
+# Usage:  python examples/deconvolution.py --config configs/deconvolution_smoke.yaml
+#         nefi run deconvolution --smoke        (the CLI additionally caps the step count)
+instance: deconvolution
+config:
+  n: 32
+  scene: phantom             # phantom | smooth | sparse_dots
+  psf: gaussian              # gaussian | motion | disk
+  psf_sigma: 0.04            # physical std on [0, 1]² (1.28 px at n = 32)
+  noise: gaussian            # gaussian | poisson
+  noise_std: 0.01
+  hidden: 64
+  depth: 3
+  n_octaves: 5               # 2^4 cycles over the domain = Nyquist at 32 px
+  steps: [150, 300]
+  lr: 2.0e-2
+  tv: 1.0e-4
+  # baselines at smoke size
+  dd_width: 32
+  splat_primitives: 32
+  splat_max_primitives: 64
+  admm_outer: 20
+run:
+  seed: 0
+  device: auto
+  methods: [neural, wiener, grid, admm, deep_decoder, gaussian_splat]
+  out: runs/deconvolution_smoke

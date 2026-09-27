@@ -1,0 +1,40 @@
+# poisson_source — production-scale run (GPU recommended): 64×64 grid, sources recovered from u
+# on a random 10 % of the pixels. Source recovery is the most ill-conditioned of the three
+# instances ((-Δ)^-1 damps frequency k by 1/k²), hence the long curriculum. Validated on CPU at
+# (1000, 2000) steps: blobs PSNR 27.6 dB, relative error 0.31.
+# Usage:  python examples/poisson_source.py --config configs/poisson_source_full.yaml
+instance: poisson_source
+config:
+  n: 64
+  extent: 1.0
+  conductivity: 1.0
+  spectrum: continuous       # continuous | fd (eigenvalues of the inversion solver)
+  scene: blobs
+  point_cells: 0.8           # width of "points" sources in native cells
+  obs_mode: random
+  obs_fraction: 0.1
+  boundary_width: 3          # cells, for obs_mode: boundary
+  noise_std: 0.01            # relative to max |u|
+  supersample: 2             # data: 5-point FD solve on a 2x grid, float64
+  head: softplus             # softplus | identity
+  init_value: 0.05
+  data_loss: relative_mse    # scale-free masked MSE (| mse)
+  l1: 1.0e-3
+  tv: 1.0e-4
+  hidden: 128
+  depth: 4
+  skip_at: 2
+  n_octaves: 6
+  activation: tanh
+  steps: [2000, 4000]
+  lr: 1.0e-2
+  lr_decay: 0.5
+  grid_lr: 5.0e-2
+  dd_lr: 5.0e-3
+  dd_width: 128
+  dd_stages: 5
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid, deep_decoder]
+  out: runs/poisson_source_full

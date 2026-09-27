@@ -1,0 +1,25 @@
+# photoacoustic3d — tiny local smoke run (CPU, ≈ 6 s on one core): a 5 × 5 × 3.5 mm crop at 0.25 mm
+# voxels (20×20×14), vessel phantom, 8×8 planar sensor array on the top face with a 1 MHz
+# Gaussian bandwidth, 21 samples of 0.25 µs, 2 % noise; 10×10×8 → 20×20×14 curriculum with
+# 150 + 50 steps (most work on the 16× cheaper coarse wave solve). Identical to PRESETS["smoke"] of
+# nefi.instances.photoacoustic3d; everything else takes the default of Photoacoustic3DConfig.
+# Usage:  python examples/photoacoustic3d.py --config configs/photoacoustic3d_smoke.yaml
+#         nefi run photoacoustic3d --smoke
+instance: photoacoustic3d
+config:
+  extent: [5.0, 5.0, 3.5]
+  grid: [20, 20, 14]
+  t_max: 5.0
+  sensor_grid: [8, 8]
+  scene: vessels             # vessels | spheres
+  hidden: 64
+  depth: 3
+  skip_at: 2
+  n_octaves: 4
+  steps: [150, 50]
+  lr: 2.0e-2
+run:
+  seed: 0
+  device: auto
+  methods: [neural, time_reversal, grid]
+  out: runs/photoacoustic3d_smoke

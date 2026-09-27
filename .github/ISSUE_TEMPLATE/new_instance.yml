@@ -1,0 +1,55 @@
+name: New instance proposal
+description: Propose a new registered inverse problem — a physical system that should join the instance catalogue.
+labels: ["new instance"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An instance is a complete, reproducible problem: a config dataclass, scene generators with
+        difficulty classes, an **independent** data generator (a finer grid, float64 or a different
+        scheme — never the inversion operator itself), the problem builder, a default curriculum,
+        metrics and baselines. See [A new instance](https://continuumcoder.github.io/NEFI/tutorials/04_new_instance/).
+  - type: input
+    id: system
+    attributes:
+      label: Physical system
+      placeholder: "e.g. magnetic particle imaging, seismic travel-time tomography, ptychography"
+    validations:
+      required: true
+  - type: textarea
+    id: unknown
+    attributes:
+      label: Unknown field and measurement
+      description: What is recovered (dimension, value range, units) and what the instrument measures (shape, noise model).
+    validations:
+      required: true
+  - type: textarea
+    id: forward
+    attributes:
+      label: Forward model
+      description: The governing equations and a discretization that can be made differentiable. Linear or nonlinear? Memory-heavy time stepping?
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Independent data generator
+      description: How benchmark data will be simulated without an inverse crime.
+    validations:
+      required: true
+  - type: textarea
+    id: evaluation
+    attributes:
+      label: Scene classes, metrics and baselines
+      description: Difficulty classes, the metrics that matter in this field, and classical reference reconstructions.
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Papers or datasets that define the problem.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I can contribute the implementation, tests and the documentation page.

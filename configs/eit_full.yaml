@@ -1,0 +1,59 @@
+# EIT (continuum model) — full-scale settings for the CUDA servers.
+# 64×64 grid, 16 current patterns, two-stage curriculum 32² → 64². Every value is the default of
+# nefi.instances.eit.EITConfig unless noted; spelled out here for provenance.
+# Usage (CUDA server):
+#   python examples/eit.py --config configs/eit_full.yaml --device cuda
+instance:
+  type: eit
+  # geometry & physics
+  n: 64
+  half_width: 1.0
+  sigma_bg: 1.0
+  sigma_min: 0.05
+  sigma_max: 20.0
+  n_patterns: 16             # frequencies 1..8
+  amplitude: 1.0
+  electrodes: 0              # 0 = continuum model; e.g. 32 for the gap electrode model
+  electrode_coverage: 0.5
+  face_mode: harmonic        # NeFTY Prop. 1
+  # scenes
+  scene: multi               # single | multi | contrast
+  contrast: [3.0, 6.0]
+  high_contrast: [10.0, 20.0]
+  radius: [0.2, 0.4]
+  center_radius: 0.5
+  # data (inverse-crime guard: same physics on a 2× finer grid in float64)
+  noise_std: 1.0e-3
+  supersample: 2
+  # PDE solver
+  tol: 1.0e-6
+  precond: jacobi
+  grad_mode: ift
+  warm_start: true
+  check_every: 8            # CG convergence check every 8 iterations (fewer host syncs)
+  # neural field
+  log_param: true            # σ = LogBounded(σ_min, σ_max)
+  hidden: 256
+  depth: 6
+  skip_at: 3
+  n_octaves: 4
+  activation: relu
+  # curriculum 32² → 64²
+  multiscale: true
+  min_coarse: 12
+  steps: [1000, 3000]
+  lr: 5.0e-3
+  lr_decay: 0.5
+  lr_min_ratio: 0.05
+  anneal_fraction: 0.5
+  # losses
+  data_loss: mse
+  tv: 1.0e-5
+  tv_eps: 1.0e-3
+  iou_fraction: 0.5
+  grid_lr: 0.05
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid]
+  out: runs/eit_full

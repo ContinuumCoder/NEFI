@@ -1,0 +1,1271 @@
+/*! nefi volume viewer (nefi.viz.interactive, MIT) - a dependency-free, drag-to-rotate viewer of
+ * one or more 3-D volumes (ground truth vs reconstruction) with one camera; Canvas 2D only.
+ *
+ * Page contract: <div class="nefi-vv" id="ID"></div> and <script type="application/json"
+ * id="ID-data">payload</script>, then ID is pushed onto window.NefiVolumeViewerQueue; this script
+ * mounts every queued viewer whether it runs before or after the fragments, so several viewers
+ * coexist on one page. The payload (nefi.viz.interactive.viewer_payload) holds the grid shape,
+ * physical extent and axis names, colormap and colour limits, the GT threshold rule, the default
+ * level rule and display transform, the volumes quantized to 8/16-bit integers with an affine
+ * scale and the default isosurfaces (marching cubes in Python), base64-encoded.
+ *
+ * Rendering is a small software rasterizer (ImageData + depth buffer): isosurfaces are lit
+ * triangles (smooth or flat shading, back faces culled), thresholded voxels are perspective-sized
+ * squares drawn far to near and faded toward the background with depth, the slice is a textured
+ * quad (per-pixel ray/plane intersection) and box edges are depth-tested lines. A changed level
+ * or display transform re-extracts isosurfaces here (marching tetrahedra). Threshold rules,
+ * matched / Otsu levels and transforms mirror nefi/viz/isosurface.py operation by operation.
+ */
+(function (root) {
+  "use strict";
+  if (root.NefiVolumeViewer) return root.NefiVolumeViewer.flush();
+  var doc = root.document, DIST = 3.2; // camera distance in half-diagonals of the box
+  var raf = root.requestAnimationFrame ? root.requestAnimationFrame.bind(root)
+    : function (f) { return setTimeout(f, 16); };
+  var LIGHT = norm3([-0.35, 0.5, 1]), HALF = norm3([LIGHT[0], LIGHT[1], LIGHT[2] + 1]);
+  var AXIS_COLORS = ["#d03b3b", "#199e70", "#2a78d6"];
+  var PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7"];
+  var PALETTE_DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9"];
+  var RULES = { matched: "volume-matched", fixed: "GT threshold", otsu: "Otsu", manual: "manual" };
+  var TRANSFORMS = {
+    none: null,
+    "smooth:1": { name: "smooth", sigma: 1 },
+    "smooth:2": { name: "smooth", sigma: 2 },
+    "sharpen:1:1": { name: "sharpen", sigma: 1, amount: 1 },
+    "edge_preserve:5": { name: "edge_preserve", iterations: 5, kappa: 0.1, step: 0.15 }
+  };
+
+  // ---- colormaps: 33 stops sampled from matplotlib's tables, interpolated to 256 entries ------
+  var STOPS = {
+    viridis: "440154470d6048186a482374472d7b4537814240863e49893b528b375b8d33638d2f6b8e2c728e297a8e" +
+      "26828e23898e21918c1f978b1f9f8821a68527ad8131b57b3dbc744cc26c5cc8636ece5881d34d95d840aadc" +
+      "32c0df25d5e21aeae51afde725",
+    magma: "0000040303120a0822130d341d114729115a36106b440f7651127c5d177f6a1c81762181832681902a81" +
+      "9c2e7faa337db73779c23b75cf4070db476ae55064ee5b5ef4695cf9785dfb8761fd9668fea571feb47bfec287" +
+      "fed194fde0a1fceeb0fcfdbf",
+    inferno: "0000040403120b0724150b37210c4a2f0a5b3d09654a0c6b57106e64156e71196e7d1e6d8a226a972766" +
+      "a32c61b0315bbc3754c63d4dd04545da4e3ce35933eb6429f1711ff67e14f98c0afb9b06fcaa0ffbba1ff9c932" +
+      "f5d949f2e865f3f586fcffa4",
+    plasma: "0d08872206903105973f049c4c02a15901a56600a77201a87e03a88a09a59511a1a01a9caa2395b32c8e" +
+      "bc3587c43e7fcc4778d24f71d9586adf6263e56b5deb7556f07f4ff48948f89441fb9f3afdab33feb72dfdc328" +
+      "fcd025f9dd25f5eb27f0f921",
+    cividis: "00224e00285b002e6a0533711a386f273e6e32436d3b496c434e6c4b546c535a6d5a5f6e61656f686a71" +
+      "6f70737676767d7c788381798b8778928d789a9376a29975aaa073b3a670bbad6dc3b369ccba64d4c15fddc858" +
+      "e6d051efd748f8df3cfee838",
+    RdBu_r: "0530610e41791752901f63a82a71b23480b93f8ec0529dc86bacd184bcd99bc9e0aed3e6c2ddecd4e6f1" +
+      "e0ecf3ecf2f5f7f6f6f9efe9fbe6dafdddcbfbceb7f8bda1f5ac8bef9979e58368dc6e57d25849c6413ebb2a34" +
+      "ae172a960f277f082367001f",
+    twilight: "e2d9e2ddd9e0d6d7ddcdd3d8c2ced4b6c8cfaac2cc9ebbc993b4c689adc580a5c3789ec27196c16c8ebf" +
+      "6786be647dbc6275ba606db85f64b55f5ab15e51ad5e47a75d3da15c3499592a8f562284511b774c166945135c" +
+      "3e115038114533113d2f1436",
+    Greys: "fffffffbfbfbf7f7f7f4f4f4f0f0f0eaeaeae4e4e4dfdfdfd9d9d9d2d2d2cbcbcbc4c4c4bdbdbdb3b3b3a9a9" +
+      "a99f9f9f9595958e8e8e8585857c7c7c7373736b6b6b6363635b5b5b5252524747473c3c3c3030302525251c1c" +
+      "1c131313090909000000"
+  };
+  var LUTS = {};
+  function lut(name) {
+    var key = String(name || "viridis"), rev = false;
+    if (!STOPS[key]) {
+      if (/_r$/.test(key) && STOPS[key.slice(0, -2)]) { key = key.slice(0, -2); rev = true; }
+      else if (STOPS[key + "_r"]) { key += "_r"; rev = true; }
+      else key = "viridis";
+    }
+    var id = key + (rev ? "~" : ""), s = STOPS[key], n = s.length / 6, out, i, c, x, k, f, a, b;
+    if (LUTS[id]) return LUTS[id];
+    out = new Uint8Array(768);
+    for (i = 0; i < 256; i++) {
+      x = ((rev ? 255 - i : i) / 255) * (n - 1);
+      k = Math.min(n - 2, Math.floor(x));
+      f = x - k;
+      for (c = 0; c < 3; c++) {
+        a = parseInt(s.substr(k * 6 + c * 2, 2), 16);
+        b = parseInt(s.substr(k * 6 + 6 + c * 2, 2), 16);
+        out[i * 3 + c] = Math.round(a + (b - a) * f);
+      }
+    }
+    return (LUTS[id] = out);
+  }
+
+  // ---- small helpers ----------------------------------------------------------------------------
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function norm3(v) {
+    var l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1;
+    return [v[0] / l, v[1] / l, v[2] / l];
+  }
+  function fmt(v) {
+    if (typeof v !== "number" || !isFinite(v)) return "—";
+    var a = Math.abs(v);
+    return a !== 0 && (a < 1e-3 || a >= 1e5) ? v.toExponential(2) : String(+v.toPrecision(3));
+  }
+  function el(tag, cls, parent, text) {
+    var e = doc.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function pack(r, g, b) { return (0xff000000 | (b << 16) | (g << 8) | r) >>> 0; }
+  function mix(d, s, a) { // blend packed colour s over d with opacity a
+    var dr = d & 255, dg = (d >>> 8) & 255, db = (d >>> 16) & 255;
+    return (0xff000000 | ((db + (((s >>> 16) & 255) - db) * a) << 16) |
+      ((dg + (((s >>> 8) & 255) - dg) * a) << 8) | (dr + ((s & 255) - dr) * a)) >>> 0;
+  }
+  var probe = null;
+  function rgbOf(css, fallback) {
+    if (!probe) probe = doc.createElement("canvas").getContext("2d");
+    probe.fillStyle = fallback;
+    if (css) probe.fillStyle = css;
+    var s = String(probe.fillStyle), m;
+    if (s.charAt(0) === "#") return [1, 3, 5].map(function (i) { return parseInt(s.substr(i, 2), 16); });
+    m = s.match(/[\d.]+/g) || [0, 0, 0];
+    return [+m[0], +m[1], +m[2]];
+  }
+  function cssOf(c) { return "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")"; }
+  function copy(o) { return JSON.parse(JSON.stringify(o)); }
+  function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+  function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+  function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function cross(a, b) {
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  }
+
+  // ---- data -------------------------------------------------------------------------------------
+  function bytesOf(b64) {
+    var s = root.atob(b64), n = s.length, out = new Uint8Array(n), i;
+    for (i = 0; i < n; i++) out[i] = s.charCodeAt(i);
+    return out;
+  }
+  // quantized volume -> Float64Array lo + q * step (the top code is NaN when vol.nan)
+  function decode(vol, count) {
+    var raw = bytesOf(vol.data), wide = vol.bits === 16, top = wide ? 65535 : 255;
+    var dv = new DataView(raw.buffer), out = new Float64Array(count), q, i;
+    for (i = 0; i < count; i++) {
+      q = wide ? dv.getUint16(2 * i, true) : raw[i];
+      out[i] = vol.nan && q === top ? NaN : vol.lo + q * vol.step;
+    }
+    return out;
+  }
+  // embedded mesh: vertices uint16 over [-0.5, n - 0.5] per axis (grid index units), faces
+  function decodeMesh(m, shape) {
+    var vb = new DataView(bytesOf(m.v).buffer), fb = new DataView(bytesOf(m.f).buffer);
+    var v = new Float32Array(3 * m.nv), f = new Uint32Array(3 * m.nf), i;
+    for (i = 0; i < v.length; i++) v[i] = (vb.getUint16(2 * i, true) / 65535) * shape[i % 3] - 0.5;
+    for (i = 0; i < f.length; i++)
+      f[i] = m.fbits === 32 ? fb.getUint32(4 * i, true) : fb.getUint16(2 * i, true);
+    return { v: v, f: f };
+  }
+
+  // ---- threshold rules and levels (mirror nefi.viz.isosurface) ---------------------------------
+  // absolute: v > t / v < t; relative: (v - b) > f (peak - b) above, (b - v) > f (b - trough) below
+  function select(vals, r, peak, trough, out) {
+    var n = vals.length, i, s, c = 0, t, d, bg = +r.background || 0, below = r.side === "below";
+    if (r.mode === "relative") {
+      d = below ? bg - trough : peak - bg;
+      t = d > 0 ? r.fraction * d : Infinity;
+      if (below) for (i = 0; i < n; i++) { s = bg - vals[i] > t ? 1 : 0; out[i] = s; c += s; }
+      else for (i = 0; i < n; i++) { s = vals[i] - bg > t ? 1 : 0; out[i] = s; c += s; }
+    } else {
+      t = r.value;
+      if (below) for (i = 0; i < n; i++) { s = vals[i] < t ? 1 : 0; out[i] = s; c += s; }
+      else for (i = 0; i < n; i++) { s = vals[i] > t ? 1 : 0; out[i] = s; c += s; }
+    }
+    return c;
+  }
+  function levelOf(r, peak, trough) {
+    if (r.mode !== "relative") return r.value;
+    var bg = +r.background || 0;
+    return r.side === "below" ? bg - r.fraction * (bg - trough) : bg + r.fraction * (peak - bg);
+  }
+  function extremes(vals) {
+    var lo = Infinity, hi = -Infinity, i, x;
+    for (i = 0; i < vals.length; i++) { x = vals[i]; if (x < lo) lo = x; if (x > hi) hi = x; }
+    return lo <= hi ? [lo, hi] : [NaN, NaN];
+  }
+  function sortedFinite(vals) {
+    var a = new Float64Array(vals.length), m = 0, i, x;
+    for (i = 0; i < vals.length; i++) {
+      x = vals[i];
+      if (x === x && x !== Infinity && x !== -Infinity) a[m++] = x;
+    }
+    return a.subarray(0, m).sort();
+  }
+  // volume-matched level of a sorted array: `count` values lie past it on `side`
+  function matchedLevel(a, side, count) {
+    var m = a.length, k;
+    if (!m) return NaN;
+    k = Math.min(Math.max(Math.round(count), 0), m);
+    if (side === "below") {
+      if (k <= 0) return a[0];
+      if (k >= m) return a[m - 1] + Math.max(Math.abs(a[m - 1]), 1) * 1e-9;
+      return a[k - 1] + (a[k] - a[k - 1]) / 2;
+    }
+    if (k <= 0) return a[m - 1];
+    if (k >= m) return a[0] - Math.max(Math.abs(a[0]), 1) * 1e-9;
+    return a[m - k - 1] + (a[m - k] - a[m - k - 1]) / 2;
+  }
+  function otsuLevel(vals) {
+    var e = extremes(vals), lo = e[0], hi = e[1], bins = 256, h = new Float64Array(bins), n = 0;
+    var sum = 0, w0 = 0, s0 = 0, best = -1, kb = 0, kl = 0, i, k, x, w1, d, v;
+    if (!(hi > lo)) return lo;
+    for (i = 0; i < vals.length; i++) {
+      x = vals[i];
+      if (x === x) {
+        k = Math.floor(((x - lo) / (hi - lo)) * bins);
+        h[k < bins - 1 ? k : bins - 1]++;
+        n++;
+      }
+    }
+    for (i = 0; i < bins; i++) sum += i * h[i];
+    for (k = 0; k < bins - 1; k++) {
+      w0 += h[k];
+      s0 += k * h[k];
+      w1 = n - w0;
+      if (w0 === 0 || w1 === 0) continue;
+      d = s0 / w0 - (sum - s0) / w1;
+      v = w0 * w1 * d * d;
+      if (v > best) { best = v; kb = kl = k; }
+      else if (v === best) kl = k; // empty bins between the classes tie: keep the plateau
+    }
+    return lo + ((kb + kl) / 2 + 1) * (hi - lo) / bins;
+  }
+  function overlap(a, b) { // [IoU, Dice] of two 0/1 masks
+    var i, u = 0, x = 0, s = 0;
+    for (i = 0; i < a.length; i++) { u += a[i] | b[i]; x += a[i] & b[i]; s += a[i] + b[i]; }
+    return [u ? x / u : NaN, s ? (2 * x) / s : NaN];
+  }
+
+  // ---- display transforms (mirror nefi.viz.isosurface.volume_transform) -------------------------
+  function strides(shape) { return [shape[1] * shape[2], shape[2], 1]; }
+  function gaussAxis(src, shape, sigma, axis) {
+    var r = Math.max(1, Math.ceil(3 * sigma)), w = [], s = 0, i, j;
+    for (i = -r; i <= r; i++) w.push(Math.exp(-(i * i) / (2 * sigma * sigma)));
+    for (i = 0; i < w.length; i++) s += w[i];
+    for (i = 0; i < w.length; i++) w[i] /= s;
+    var n = shape[axis], st = strides(shape)[axis], out = new Float64Array(src.length), p, q, b, acc;
+    for (i = 0; i < src.length; i++) {
+      p = Math.floor(i / st) % n;
+      b = i - p * st;
+      acc = 0;
+      for (j = 0; j < w.length; j++) {
+        q = p + j - r;
+        acc += w[j] * src[b + (q < 0 ? 0 : q >= n ? n - 1 : q) * st];
+      }
+      out[i] = acc;
+    }
+    return out;
+  }
+  function smooth(x, shape, sigma) {
+    var out = x, a;
+    if (!(sigma > 0)) return Float64Array.from(x);
+    for (a = 0; a < 3; a++) out = gaussAxis(out, shape, sigma, a);
+    return out;
+  }
+  // Perona-Malik: x += step sum_nbr d / (1 + (d/k)^2), k = kappa * range, zero-flux borders
+  function peronaMalik(x, shape, iters, kappa, step) {
+    var e = extremes(x), k = kappa * (e[1] - e[0]), n = x.length, y = Float64Array.from(x);
+    var st = strides(shape), z, i, a, p, c, d, u, it;
+    if (!(k > 0)) return y;
+    for (it = 0; it < iters; it++) {
+      z = new Float64Array(n);
+      for (i = 0; i < n; i++) {
+        c = y[i];
+        u = 0;
+        for (a = 0; a < 3; a++) {
+          p = Math.floor(i / st[a]) % shape[a];
+          d = (p > 0 ? y[i - st[a]] : c) - c;
+          u = u + d / (1 + (d / k) * (d / k));
+          d = (p < shape[a] - 1 ? y[i + st[a]] : c) - c;
+          u = u + d / (1 + (d / k) * (d / k));
+        }
+        z[i] = c + step * u;
+      }
+      y = z;
+    }
+    return y;
+  }
+  function transform(vals, shape, t) {
+    if (!t) return vals;
+    var n = vals.length, x = new Float64Array(n), nan = false, fill = 0, i, y, g, v, e, a;
+    for (i = 0; i < n; i++) if (vals[i] !== vals[i]) nan = true;
+    if (nan) { // NaN -> median (restored afterwards), as the Python
+      a = sortedFinite(vals);
+      if (a.length) fill = a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2;
+    }
+    for (i = 0; i < n; i++) x[i] = vals[i] === vals[i] ? vals[i] : fill;
+    if (t.name === "smooth") y = smooth(x, shape, t.sigma);
+    else if (t.name === "sharpen") {
+      g = smooth(x, shape, t.sigma);
+      e = extremes(x);
+      y = new Float64Array(n);
+      for (i = 0; i < n; i++) {
+        v = x[i] + t.amount * (x[i] - g[i]);
+        y[i] = v < e[0] ? e[0] : v > e[1] ? e[1] : v;
+      }
+    } else y = peronaMalik(x, shape, t.iterations, t.kappa, t.step);
+    if (nan) for (i = 0; i < n; i++) if (vals[i] !== vals[i]) y[i] = NaN;
+    return y;
+  }
+  function tkey(t) {
+    if (!t) return "none";
+    return t.name + ":" + (t.name === "edge_preserve" ? t.iterations : t.sigma) +
+      (t.name === "sharpen" ? ":" + t.amount : "");
+  }
+  function tlabel(t) {
+    if (!t) return "";
+    if (t.name === "smooth") return "display: smooth σ=" + fmt(t.sigma);
+    if (t.name === "sharpen") return "display: sharpen ×" + fmt(t.amount) + " σ=" + fmt(t.sigma);
+    return "display: edge-preserving ×" + t.iterations;
+  }
+
+  // ---- isosurfaces: marching tetrahedra (6 per cube around its main diagonal) --------------------
+  var TETS = [[0, 1, 3, 7], [0, 1, 5, 7], [0, 2, 3, 7], [0, 2, 6, 7], [0, 4, 5, 7], [0, 4, 6, 7]];
+  // vertices in grid index units (voxel centre i at i), faces oriented outward; the volume is
+  // padded with an outside value so surfaces close at the box (as nefi.viz.isosurface.iso_mesh)
+  function isoMesh(vals, shape, level, side) {
+    var nx = shape[0] + 2, ny = shape[1] + 2, nz = shape[2] + 2, N = nx * ny * nz;
+    var s = new Float64Array(N), sg = side === "below" ? -1 : 1, e = extremes(vals);
+    var span = Math.max(e[1] - e[0] || 0, Math.abs(level), 1e-12), i, j, k, b, x;
+    s.fill(-span);
+    for (i = 0; i < shape[0]; i++)
+      for (j = 0; j < shape[1]; j++)
+        for (k = 0; k < shape[2]; k++) {
+          x = vals[(i * shape[1] + j) * shape[2] + k];
+          x = x === x ? sg * (x - level) : -span;
+          // samples exactly at the level count as outside, nudged off it: no zero-area triangles
+          s[((i + 1) * ny + j + 1) * nz + k + 1] = x === 0 ? -1e-7 * span : x;
+        }
+    var off = [], cv = new Float64Array(8), gi = new Int32Array(8), verts = [], faces = [];
+    var map = new Map(), ins = [0, 0, 0, 0], outs = [0, 0, 0, 0];
+    for (b = 0; b < 8; b++) off[b] = (b & 1) * ny * nz + ((b >> 1) & 1) * nz + ((b >> 2) & 1);
+    function coord(g, a) {
+      return a === 0 ? Math.floor(g / (ny * nz)) : a === 1 ? Math.floor(g / nz) % ny : g % nz;
+    }
+    function vert(p, q) { // on the edge from corner p (inside) to corner q (outside)
+      var gp = gi[p], gq = gi[q], key = gp < gq ? gp * N + gq : gq * N + gp, id = map.get(key), t, a;
+      if (id !== undefined) return id;
+      t = cv[p] / (cv[p] - cv[q]);
+      id = verts.length / 3;
+      for (a = 0; a < 3; a++)
+        verts.push(clamp(coord(gp, a) + t * (coord(gq, a) - coord(gp, a)) - 1, -0.5, shape[a] - 0.5));
+      map.set(key, id);
+      return id;
+    }
+    function tri(a, b, c, dir) { // orient (right-hand normal) along dir: inside -> outside
+      var A = 3 * a, B = 3 * b, C = 3 * c, u = sub(verts.slice(B, B + 3), verts.slice(A, A + 3));
+      var n = cross(u, sub(verts.slice(C, C + 3), verts.slice(A, A + 3)));
+      if (dot(n, dir) < 0) faces.push(a, c, b);
+      else faces.push(a, b, c);
+    }
+    var t, T, ni, no, c, dir, pa, pb, ca, g0, inside, ac, ad, bd, bc;
+    for (i = 0; i < nx - 1; i++)
+      for (j = 0; j < ny - 1; j++)
+        for (k = 0; k < nz - 1; k++) {
+          g0 = (i * ny + j) * nz + k;
+          inside = 0;
+          for (b = 0; b < 8; b++) {
+            gi[b] = g0 + off[b];
+            cv[b] = s[gi[b]];
+            if (cv[b] > 0) inside++;
+          }
+          if (inside === 0 || inside === 8) continue;
+          for (t = 0; t < 6; t++) {
+            T = TETS[t];
+            ni = no = 0;
+            for (c = 0; c < 4; c++) {
+              if (cv[T[c]] > 0) ins[ni++] = T[c];
+              else outs[no++] = T[c];
+            }
+            if (ni === 0 || ni === 4) continue;
+            dir = [0, 0, 0]; // outward: from the inside corners' centroid to the outside corners'
+            for (c = 0; c < 3; c++) {
+              pa = pb = 0;
+              for (ca = 0; ca < ni; ca++) pa += (ins[ca] >> c) & 1;
+              for (ca = 0; ca < no; ca++) pb += (outs[ca] >> c) & 1;
+              dir[c] = pb / no - pa / ni;
+            }
+            if (ni === 1) tri(vert(ins[0], outs[0]), vert(ins[0], outs[1]), vert(ins[0], outs[2]), dir);
+            else if (ni === 3) tri(vert(ins[0], outs[0]), vert(ins[1], outs[0]), vert(ins[2], outs[0]), dir);
+            else {
+              ac = vert(ins[0], outs[0]);
+              ad = vert(ins[0], outs[1]);
+              bd = vert(ins[1], outs[1]);
+              bc = vert(ins[1], outs[0]);
+              tri(ac, ad, bd, dir);
+              tri(ac, bd, bc, dir);
+            }
+          }
+        }
+    return { v: Float32Array.from(verts), f: Uint32Array.from(faces) };
+  }
+  function vertexNormals(pos, f) { // area-weighted
+    var n = new Float32Array(pos.length), i, a, b, c, q, fn, l;
+    for (i = 0; i < f.length; i += 3) {
+      a = 3 * f[i];
+      b = 3 * f[i + 1];
+      c = 3 * f[i + 2];
+      fn = cross([pos[b] - pos[a], pos[b + 1] - pos[a + 1], pos[b + 2] - pos[a + 2]],
+        [pos[c] - pos[a], pos[c + 1] - pos[a + 1], pos[c + 2] - pos[a + 2]]);
+      for (q = 0; q < 3; q++) { n[a + q] += fn[q]; n[b + q] += fn[q]; n[c + q] += fn[q]; }
+    }
+    for (i = 0; i < n.length; i += 3) {
+      l = Math.sqrt(n[i] * n[i] + n[i + 1] * n[i + 1] + n[i + 2] * n[i + 2]) || 1;
+      n[i] /= l;
+      n[i + 1] /= l;
+      n[i + 2] /= l;
+    }
+    return n;
+  }
+
+  // ---- geometry and camera ----------------------------------------------------------------------
+  // display coordinates (a, b, c) = (lateral 0, -lateral 1, -depth * stretch) / R, centred, R =
+  // half-diagonal of the box; c points up so depth grows downwards (a proper rotation of the grid)
+  function Geometry(P, stretch) {
+    var s = P.shape, e = P.extent, d = P.axis, len = [0, 0, 0], R = 0, k, c, i;
+    for (k = 0; k < 3; k++) {
+      len[k] = (Math.abs(e[k][1] - e[k][0]) || s[k]) * (k === d ? stretch : 1);
+      R += len[k] * len[k];
+    }
+    R = 0.5 * Math.sqrt(R) || 1;
+    this.shape = s;
+    this.src = [(d + 1) % 3, (d + 2) % 3, d]; // display component -> grid axis, with sign sg
+    this.sg = [1, -1, -1];
+    this.cell = [];
+    this.low = [];
+    for (k = 0; k < 3; k++) { this.cell[k] = len[k] / s[k] / R; this.low[k] = -len[k] / (2 * R); }
+    this.size = Math.cbrt(this.cell[0] * this.cell[1] * this.cell[2]);
+    var tab = [], pos = new Float32Array(3 * s[0] * s[1] * s[2]), I = [0, 0, 0], p = 0, src = this.src;
+    for (c = 0; c < 3; c++) {
+      tab[c] = [];
+      for (i = 0; i < s[src[c]]; i++)
+        tab[c][i] = this.sg[c] * (this.low[src[c]] + (i + 0.5) * this.cell[src[c]]);
+    }
+    for (I[0] = 0; I[0] < s[0]; I[0]++)
+      for (I[1] = 0; I[1] < s[1]; I[1]++)
+        for (I[2] = 0; I[2] < s[2]; I[2]++) {
+          pos[p++] = tab[0][I[src[0]]];
+          pos[p++] = tab[1][I[src[1]]];
+          pos[p++] = tab[2][I[src[2]]];
+        }
+    this.pos = pos; // voxel centres
+  }
+  // continuous cell coordinates (voxel centre i at i + 0.5) -> display coordinates
+  Geometry.prototype.point = function (f) {
+    var out = [0, 0, 0], c, a;
+    for (c = 0; c < 3; c++) { a = this.src[c]; out[c] = this.sg[c] * (this.low[a] + f[a] * this.cell[a]); }
+    return out;
+  };
+  Geometry.prototype.mesh = function (v) { // mesh vertices (grid index units) -> display
+    var out = new Float32Array(v.length), i, c, a;
+    for (i = 0; i < v.length; i += 3)
+      for (c = 0; c < 3; c++) {
+        a = this.src[c];
+        out[i + c] = this.sg[c] * (this.low[a] + (v[i + a] + 0.5) * this.cell[a]);
+      }
+    return out;
+  };
+  function Camera() { this.reset(); }
+  Camera.prototype.reset = function () {
+    this.th = -0.62;
+    this.ph = 0.5;
+    this.zoom = 1;
+    this.px = this.py = 0;
+    return this;
+  };
+  Camera.prototype.copy = function () {
+    var c = new Camera();
+    c.th = this.th; c.ph = this.ph; c.zoom = this.zoom; c.px = this.px; c.py = this.py;
+    return c;
+  };
+  // tilt(ph) . turn(th) about the display "up" axis; rows: vx (right), vy (up), vz (to the viewer)
+  Camera.prototype.matrix = function () {
+    var ct = Math.cos(this.th), st = Math.sin(this.th), cp = Math.cos(this.ph), sp = Math.sin(this.ph);
+    return [ct, -st, 0, sp * st, sp * ct, cp, -cp * st, -cp * ct, sp];
+  };
+  function view(m, p) {
+    return [m[0] * p[0] + m[1] * p[1] + m[2] * p[2], m[3] * p[0] + m[4] * p[1] + m[5] * p[2],
+      m[6] * p[0] + m[7] * p[1] + m[8] * p[2]];
+  }
+  function project(pr, p) {
+    var v = view(pr.m, p), w = DIST - v[2];
+    return [pr.cx + (pr.F * v[0]) / w, pr.cy - (pr.F * v[1]) / w, w];
+  }
+  function fogOf(w) { return clamp((w - DIST + 1) * 0.5, 0, 1); }
+  function line(pr, p, q, col, a1, a0) { // depth-tested; hidden parts drawn faintly (a0)
+    var dx = q[0] - p[0], dy = q[1] - p[1], n = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)));
+    var th = pr.dpr > 1.4 ? 2 : 1, i, t, x, y, w, k, ox, oy, xx, yy;
+    if (!(n < 1e5) || p[2] < 0.05 || q[2] < 0.05) return;
+    for (i = 0; i <= n; i++) {
+      t = n ? i / n : 0;
+      x = Math.round(p[0] + dx * t);
+      y = Math.round(p[1] + dy * t);
+      w = p[2] + (q[2] - p[2]) * t;
+      for (ox = 0; ox < th; ox++)
+        for (oy = 0; oy < th; oy++) {
+          xx = x + ox;
+          yy = y + oy;
+          if (xx < 0 || yy < 0 || xx >= pr.W || yy >= pr.H) continue;
+          k = yy * pr.W + xx;
+          pr.buf[k] = mix(pr.buf[k], col, w - 0.02 <= pr.zb[k] ? a1 * (1 - 0.45 * fogOf(w)) : a0);
+        }
+    }
+  }
+  function depthOrder(f, W) { // triangles far to near (bucket sort on the mean depth)
+    var nf = f.length / 3, key = new Uint16Array(nf), cnt = new Int32Array(1024);
+    var start = new Int32Array(1024), order = new Uint32Array(nf), i, k, acc = 0;
+    for (i = 0; i < nf; i++) {
+      k = ((W[f[3 * i]] + W[f[3 * i + 1]] + W[f[3 * i + 2]]) / 3 - DIST + 1) * 511.5;
+      key[i] = k = clamp(k | 0, 0, 1023);
+      cnt[k]++;
+    }
+    for (k = 1023; k >= 0; k--) { start[k] = acc; acc += cnt[k]; }
+    for (i = 0; i < nf; i++) order[start[key[i]]++] = i;
+    return order;
+  }
+
+  // ---- one panel (volume) -----------------------------------------------------------------------
+  function Panel(V, vol, k, parent) {
+    var box = el("div", "nefi-vv-panel", parent), cap = el("div", "nefi-vv-cap", box), cv;
+    this.v = V;
+    this.vol = vol;
+    this.k = k;
+    this.cam = new Camera();
+    this.head = el("b", null, cap, vol.name);
+    this.info = el("span", "nefi-vv-val", cap);
+    cv = this.canvas = el("canvas", null, box);
+    cv.tabIndex = 0;
+    cv.setAttribute("role", "img");
+    cv.setAttribute("aria-label", vol.name + ": 3-D view; drag to rotate, wheel to zoom, double-click to reset");
+    this.ctx = cv.getContext("2d");
+    this.raw = decode(vol, V.N);
+    this.mask = new Uint8Array(V.N);
+    this.cidx = new Uint8Array(V.N);
+    this.bufs = {};
+    this.events();
+  }
+  Panel.prototype.setValues = function (vals, transformed) {
+    var P = this.v.P, lo = P.vmin, span = P.vmax - P.vmin || 1, i, x;
+    this.vals = vals;
+    this.sorted = this.mesh = null;
+    this.ext = transformed ? extremes(vals) : [this.vol.trough, this.vol.peak];
+    for (i = 0; i < vals.length; i++) {
+      x = vals[i];
+      this.cidx[i] = x === x ? clamp(Math.round(((x - lo) / span) * 255), 0, 255) : 0;
+    }
+  };
+  Panel.prototype.select = function (rule) {
+    var n = select(this.vals, rule, this.ext[1], this.ext[0], this.mask), m = this.mask, j = 0, i;
+    this.sel = new Uint32Array(n);
+    for (i = 0; i < m.length; i++) if (m[i]) this.sel[j++] = i;
+    return (this.count = n);
+  };
+  Panel.prototype.texture = function () {
+    var V = this.v, s = V.P.shape, a = V.sliceAxis, u = (a + 1) % 3, w = (a + 2) % 3, nu = s[u], nv = s[w];
+    var tex = new Uint32Array(nu * nv), I = [0, 0, 0], iu, iv, idx, x;
+    I[a] = V.sliceIdx;
+    for (iv = 0; iv < nv; iv++)
+      for (iu = 0; iu < nu; iu++) {
+        I[u] = iu;
+        I[w] = iv;
+        idx = (I[0] * s[1] + I[1]) * s[2] + I[2];
+        x = this.vals[idx];
+        tex[iv * nu + iu] = x === x ? V.lut32[this.cidx[idx]] : V.theme.bad32;
+      }
+    this.tex = tex;
+    this.nu = nu;
+    this.nv = nv;
+  };
+  // the isosurface at the current level: the embedded Python mesh at the defaults, else extracted
+  Panel.prototype.meshNow = function () {
+    var V = this.v, side = V.rule.side, key = V.tkey + "|" + side + "|" + this.level;
+    var pm = (V.P.meshes || [])[this.k], mesh;
+    if (this.mesh && this.mesh.key === key) return this.mesh;
+    if (pm && pm.level === this.level && pm.side === side && V.isDefault(this.k === 0)) {
+      mesh = decodeMesh(pm, V.P.shape);
+      mesh.src = "marching cubes";
+    } else if (isFinite(this.level)) {
+      mesh = isoMesh(this.vals, V.P.shape, this.level, side);
+      mesh.src = "marching tetrahedra";
+    } else mesh = { v: new Float32Array(0), f: new Uint32Array(0), src: "" };
+    mesh.key = key;
+    mesh.nf = mesh.f.length / 3;
+    return (this.mesh = mesh);
+  };
+  Panel.prototype.draw = function (fast) {
+    var V = this.v, cv = this.canvas, cw = cv.clientWidth, ch = cv.clientHeight;
+    if (!cw || !ch) return;
+    var dpr = fast ? 1 : Math.min(root.devicePixelRatio || 1, 2);
+    var W = Math.max(1, Math.round(cw * dpr)), H = Math.max(1, Math.round(ch * dpr));
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    var key = W + "x" + H, B = this.bufs[key], T = V.theme, cam = V.cam(this), mode = V.mode, note = "";
+    if (!B) {
+      if (Object.keys(this.bufs).length > 1) this.bufs = {};
+      var img = this.ctx.createImageData(W, H);
+      B = this.bufs[key] = { img: img, buf: new Uint32Array(img.data.buffer), zb: new Float32Array(W * H) };
+    }
+    var pr = { m: cam.matrix(), F: cam.zoom * 0.46 * Math.min(W, H) * Math.sqrt(DIST * DIST - 1),
+      cx: W / 2 + cam.px * dpr, cy: H / 2 + cam.py * dpr, W: W, H: H, buf: B.buf, zb: B.zb, dpr: dpr, bg: T.bg };
+    B.buf.fill(T.bg32);
+    B.zb.fill(Infinity);
+    if (mode.indexOf("slice") >= 0 && this.tex) this.drawSlice(pr);
+    if (mode.indexOf("iso") >= 0) {
+      var mesh = this.meshNow();
+      this.drawMesh(pr, mesh, V.surface(this.k), 1);
+      if (V.overlay && this.k > 0) this.drawMesh(pr, V.panels[0].meshNow(), V.surface(0), 0.34);
+      if (!mesh.nf) note = "empty level set";
+    }
+    if (mode.indexOf("voxels") >= 0) {
+      this.drawVoxels(pr, fast);
+      if (!this.count) note = "no voxels past the level";
+    }
+    this.drawBox(pr);
+    this.ctx.putImageData(B.img, 0, 0);
+    this.drawLabels(pr, note);
+  };
+  Panel.prototype.drawSlice = function (pr) {
+    var V = this.v, G = V.geo, s = G.shape, a = V.sliceAxis, u = (a + 1) % 3, w = (a + 2) % 3;
+    var f0 = [0, 0, 0], fu, fv, i, p, xs = [], ys = [];
+    f0[a] = V.sliceIdx + 0.5;
+    fu = f0.slice();
+    fv = f0.slice();
+    fu[u] = s[u];
+    fv[w] = s[w];
+    var O = G.point(f0), A = sub(G.point(fu), O), Bv = sub(G.point(fv), O);
+    var Vo = view(pr.m, O), Va = view(pr.m, A), Vb = view(pr.m, Bv), r = [-Vo[0], -Vo[1], DIST - Vo[2]];
+    var N = cross(Va, Vb), U = cross(r, Vb), Q = cross(Va, r), wn = dot(r, N);
+    var quad = [O, add(O, A), add(add(O, A), Bv), add(O, Bv)];
+    for (i = 0; i < 4; i++) {
+      p = project(pr, quad[i]);
+      if (p[2] < 0.05) return;
+      xs.push(p[0]);
+      ys.push(p[1]);
+    }
+    this.quad = quad;
+    var x0 = Math.max(0, Math.floor(Math.min.apply(null, xs))), x1 = Math.min(pr.W - 1, Math.ceil(Math.max.apply(null, xs)));
+    var y0 = Math.max(0, Math.floor(Math.min.apply(null, ys))), y1 = Math.min(pr.H - 1, Math.ceil(Math.max.apply(null, ys)));
+    var F = pr.F, tex = this.tex, nu = this.nu, nv = this.nv, buf = pr.buf, zb = pr.zb;
+    var x, y, kx, ky, det, uu, vv, z, k;
+    // the pixel ray (kx w, ky w, DIST - w) meets O + u A + v B: Cramer's rule (a homography)
+    for (y = y0; y <= y1; y++) {
+      ky = -(y + 0.5 - pr.cy) / F;
+      for (x = x0; x <= x1; x++) {
+        kx = (x + 0.5 - pr.cx) / F;
+        det = N[2] - kx * N[0] - ky * N[1];
+        if (det === 0) continue;
+        uu = (U[2] - kx * U[0] - ky * U[1]) / det;
+        if (uu < 0 || uu >= 1) continue;
+        vv = (Q[2] - kx * Q[0] - ky * Q[1]) / det;
+        if (vv < 0 || vv >= 1) continue;
+        z = wn / det;
+        k = y * pr.W + x;
+        if (z < zb[k]) { zb[k] = z; buf[k] = tex[((vv * nv) | 0) * nu + ((uu * nu) | 0)]; }
+      }
+    }
+  };
+  Panel.prototype.drawMesh = function (pr, mesh, rgb, alpha) {
+    var V = this.v, G = V.geo, f = mesh.f, nf = f.length / 3;
+    if (!nf) return;
+    if (mesh.geo !== G) { mesh.geo = G; mesh.pos = G.mesh(mesh.v); mesh.nrm = vertexNormals(mesh.pos, f); }
+    var pos = mesh.pos, nrm = mesh.nrm, nv = pos.length / 3, m = pr.m, bg = pr.bg, flat = V.shading === "flat";
+    var W = pr.W, H = pr.H, buf = pr.buf, zb = pr.zb, S = this.work, i, j, x, y, z, w;
+    if (!S || S.n < nv)
+      S = this.work = { n: nv, x: new Float32Array(nv), y: new Float32Array(nv), w: new Float32Array(nv),
+        c: [new Float32Array(nv), new Float32Array(nv), new Float32Array(nv)] };
+    function shade(nx, ny, nz, w, out, o) { // headlight Lambert + Blinn-Phong, depth fog
+      var vx = m[0] * nx + m[1] * ny + m[2] * nz, vy = m[3] * nx + m[4] * ny + m[5] * nz;
+      var vz = m[6] * nx + m[7] * ny + m[8] * nz, d = vx * LIGHT[0] + vy * LIGHT[1] + vz * LIGHT[2];
+      var h = vx * HALF[0] + vy * HALF[1] + vz * HALF[2], k = 0.3 + 0.7 * (d > 0 ? d : 0);
+      var sp = h > 0 ? 64 * Math.pow(h, 28) : 0, fg = fogOf(w) * 0.5, c, q;
+      for (q = 0; q < 3; q++) {
+        c = Math.min(255, rgb[q] * k + sp);
+        out[q][o] = c + (bg[q] - c) * fg;
+      }
+    }
+    for (i = 0, j = 0; i < nv; i++, j += 3) {
+      x = pos[j];
+      y = pos[j + 1];
+      z = pos[j + 2];
+      S.w[i] = w = DIST - (m[6] * x + m[7] * y + m[8] * z);
+      S.x[i] = pr.cx + (pr.F * (m[0] * x + m[1] * y + m[2] * z)) / w;
+      S.y[i] = pr.cy - (pr.F * (m[3] * x + m[4] * y + m[5] * z)) / w;
+      if (!flat) shade(nrm[j], nrm[j + 1], nrm[j + 2], w, S.c, i);
+    }
+    var order = alpha < 1 ? depthOrder(f, S.w) : null, fc = [[0], [0], [0]], C = S.c, q, t, a, b, c;
+    var x0, y0, x1, y1, x2, y2, w0, w1, w2, area, inv, r0, g0, b0, r1, g1, b1, r2, g2, b2, nn;
+    var minx, maxx, miny, maxy, px, py, l0, l1, l2, zz, o, col;
+    for (q = 0; q < nf; q++) {
+      t = order ? order[q] : q;
+      a = f[3 * t];
+      b = f[3 * t + 1];
+      c = f[3 * t + 2];
+      w0 = S.w[a];
+      w1 = S.w[b];
+      w2 = S.w[c];
+      if (w0 < 0.05 || w1 < 0.05 || w2 < 0.05) continue;
+      x0 = S.x[a]; y0 = S.y[a]; x1 = S.x[b]; y1 = S.y[b]; x2 = S.x[c]; y2 = S.y[c];
+      area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+      if (!(area < 0)) continue; // back face: front faces run clockwise on a y-down screen
+      if (flat) {
+        nn = norm3(cross(sub([pos[3 * b], pos[3 * b + 1], pos[3 * b + 2]], [pos[3 * a], pos[3 * a + 1], pos[3 * a + 2]]),
+          sub([pos[3 * c], pos[3 * c + 1], pos[3 * c + 2]], [pos[3 * a], pos[3 * a + 1], pos[3 * a + 2]])));
+        shade(nn[0], nn[1], nn[2], (w0 + w1 + w2) / 3, fc, 0);
+        r0 = r1 = r2 = fc[0][0];
+        g0 = g1 = g2 = fc[1][0];
+        b0 = b1 = b2 = fc[2][0];
+      } else {
+        r0 = C[0][a]; g0 = C[1][a]; b0 = C[2][a];
+        r1 = C[0][b]; g1 = C[1][b]; b1 = C[2][b];
+        r2 = C[0][c]; g2 = C[1][c]; b2 = C[2][c];
+      }
+      minx = Math.max(0, Math.floor(Math.min(x0, x1, x2)));
+      maxx = Math.min(W - 1, Math.ceil(Math.max(x0, x1, x2)));
+      miny = Math.max(0, Math.floor(Math.min(y0, y1, y2)));
+      maxy = Math.min(H - 1, Math.ceil(Math.max(y0, y1, y2)));
+      inv = 1 / area;
+      for (py = miny; py <= maxy; py++)
+        for (px = minx; px <= maxx; px++) { // barycentric weights from the edge functions
+          l0 = ((x2 - x1) * (py + 0.5 - y1) - (y2 - y1) * (px + 0.5 - x1)) * inv;
+          if (l0 < 0) continue;
+          l1 = ((x0 - x2) * (py + 0.5 - y2) - (y0 - y2) * (px + 0.5 - x2)) * inv;
+          if (l1 < 0) continue;
+          l2 = 1 - l0 - l1;
+          if (l2 < 0) continue;
+          zz = l0 * w0 + l1 * w1 + l2 * w2;
+          o = py * W + px;
+          if (zz >= zb[o]) continue;
+          col = pack((l0 * r0 + l1 * r1 + l2 * r2) | 0, (l0 * g0 + l1 * g1 + l2 * g2) | 0,
+            (l0 * b0 + l1 * b1 + l2 * b2) | 0);
+          if (alpha >= 1) { buf[o] = col; zb[o] = zz; }
+          else buf[o] = mix(buf[o], col, alpha);
+        }
+    }
+  };
+  Panel.prototype.drawVoxels = function (pr, fast) {
+    var sel = this.sel || [], n = sel.length;
+    if (!n) return;
+    var V = this.v, G = V.geo, pos = G.pos, m = pr.m, stride = fast && n > 60000 ? Math.ceil(n / 60000) : 1;
+    var cnt = Math.ceil(n / stride), S = this.vwork;
+    if (!S || S.n < cnt)
+      S = this.vwork = { n: cnt, x: new Float32Array(cnt), y: new Float32Array(cnt), w: new Float32Array(cnt),
+        id: new Uint32Array(cnt), key: new Uint16Array(cnt), ord: new Uint32Array(cnt) };
+    var hist = new Int32Array(1024), start = new Int32Array(1024), t = 0, j, id, p, w, key, acc = 0;
+    for (j = 0; j < n; j += stride, t++) {
+      id = sel[j];
+      p = 3 * id;
+      S.w[t] = w = DIST - (m[6] * pos[p] + m[7] * pos[p + 1] + m[8] * pos[p + 2]);
+      S.x[t] = pr.cx + (pr.F * (m[0] * pos[p] + m[1] * pos[p + 1] + m[2] * pos[p + 2])) / w;
+      S.y[t] = pr.cy - (pr.F * (m[3] * pos[p] + m[4] * pos[p + 1] + m[5] * pos[p + 2])) / w;
+      S.id[t] = id;
+      S.key[t] = key = clamp(((w - DIST + 1) * 511.5) | 0, 0, 1023);
+      hist[key]++;
+    }
+    for (j = 1023; j >= 0; j--) { start[j] = acc; acc += hist[j]; } // far first
+    for (j = 0; j < cnt; j++) S.ord[start[S.key[j]]++] = j;
+    var L = V.lut, bg = pr.bg, alpha = V.alpha, ghost = alpha * 0.18, size0 = pr.F * G.size;
+    var bias = 0.5 * G.size, W = pr.W, H = pr.H, buf = pr.buf, zb = pr.zb, q, ci, f, r, g, b;
+    var col, edge, sz, xa, xb, ya, yb, xx, yy, k, c2, border, wz;
+    for (j = 0; j < cnt; j++) {
+      q = S.ord[j];
+      w = S.w[q];
+      if (w < 0.05) continue;
+      ci = this.cidx[S.id[q]] * 3;
+      f = fogOf(w) * 0.6; // depth cue: farther voxels fade toward the background (and shrink)
+      r = L[ci] + (bg[0] - L[ci]) * f;
+      g = L[ci + 1] + (bg[1] - L[ci + 1]) * f;
+      b = L[ci + 2] + (bg[2] - L[ci + 2]) * f;
+      col = pack(r | 0, g | 0, b | 0);
+      edge = pack((r * 0.7) | 0, (g * 0.7) | 0, (b * 0.7) | 0);
+      sz = Math.max(1.5, size0 / w);
+      xa = Math.round(S.x[q] - sz / 2);
+      ya = Math.round(S.y[q] - sz / 2);
+      xb = xa + Math.max(1, Math.round(sz));
+      yb = ya + Math.max(1, Math.round(sz));
+      if (xb <= 0 || yb <= 0 || xa >= W || ya >= H) continue;
+      border = sz >= 7;
+      wz = w - bias;
+      xa = Math.max(0, xa);
+      ya = Math.max(0, ya);
+      xb = Math.min(W, xb);
+      yb = Math.min(H, yb);
+      for (yy = ya; yy < yb; yy++)
+        for (xx = xa; xx < xb; xx++) {
+          k = yy * W + xx;
+          c2 = border && (xx === xa || yy === ya || xx === xb - 1 || yy === yb - 1) ? edge : col;
+          if (wz <= zb[k]) { buf[k] = alpha >= 1 ? c2 : mix(buf[k], c2, alpha); zb[k] = w; }
+          else if (ghost > 0) buf[k] = mix(buf[k], c2, ghost); // behind the slice: seen through it
+        }
+    }
+  };
+  Panel.prototype.drawBox = function (pr) {
+    var V = this.v, G = V.geo, s = G.shape, T = V.theme, c = [], i, b, q;
+    for (i = 0; i < 8; i++) c.push(project(pr, G.point([i & 1 ? s[0] : 0, i & 2 ? s[1] : 0, i & 4 ? s[2] : 0])));
+    for (i = 0; i < 8; i++) for (b = 1; b < 8; b <<= 1) if (!(i & b)) line(pr, c[i], c[i | b], T.muted32, 0.85, 0.2);
+    if (V.mode.indexOf("slice") >= 0 && this.quad) {
+      q = this.quad.map(function (p) { return project(pr, p); });
+      for (i = 0; i < 4; i++) line(pr, q[i], q[(i + 1) % 4], T.accent32, 0.9, 0.3);
+    }
+    this.corners = c;
+  };
+  Panel.prototype.drawLabels = function (pr, note) {
+    var ctx = this.ctx, V = this.v, P = V.P, T = V.theme, c = this.corners, d = pr.dpr, names = P.axes;
+    var e = P.extent, o = c[0], ends = [c[1], c[2], c[4]], mid = [0, 0], k, p, dx, dy, dl, lab;
+    ctx.font = Math.round(11 * d) + "px system-ui, -apple-system, 'Segoe UI', sans-serif";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = T.mutedCss;
+    for (k = 0; k < 8; k++) { mid[0] += c[k][0] / 8; mid[1] += c[k][1] / 8; }
+    for (k = 0; k < 3; k++) { // extents at the ends of the edges from the origin corner
+      p = ends[k];
+      dx = p[0] - mid[0];
+      dy = p[1] - mid[1];
+      dl = Math.sqrt(dx * dx + dy * dy) || 1;
+      ctx.textAlign = dx >= 0 ? "left" : "right";
+      lab = names[k] + " " + fmt(e[k][1]) + (k === P.axis && V.stretch !== 1 ? " (×" + fmt(V.stretch) + ")" : "");
+      ctx.fillText(lab, p[0] + (dx / dl) * 8 * d, p[1] + (dy / dl) * 8 * d);
+    }
+    dx = o[0] - mid[0];
+    dy = o[1] - mid[1];
+    dl = Math.sqrt(dx * dx + dy * dy) || 1;
+    ctx.textAlign = "center";
+    lab = e.map(function (x) { return fmt(x[0]); });
+    lab = lab[0] === lab[1] && lab[1] === lab[2] ? lab[0] : "(" + lab.join(", ") + ")";
+    ctx.fillText(lab, o[0] + (dx / dl) * 12 * d, o[1] + (dy / dl) * 12 * d);
+    // axes triad (bottom left): the grid axes in the rotated frame, far arrows first
+    var m = pr.m, ox = 30 * d, oy = pr.H - 30 * d, len = 20 * d, vs = [], order = [0, 1, 2];
+    for (k = 0; k < 3; k++) {
+      p = [0, 0, 0];
+      p[k] = 1;
+      vs[k] = norm3(view(m, sub(V.geo.point(p), V.geo.point([0, 0, 0]))));
+    }
+    order.sort(function (a, b) { return vs[a][2] - vs[b][2]; });
+    ctx.lineWidth = 1.6 * d;
+    ctx.lineCap = "round";
+    order.forEach(function (k) {
+      var v = vs[k];
+      ctx.strokeStyle = ctx.fillStyle = AXIS_COLORS[k];
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + v[0] * len, oy - v[1] * len);
+      ctx.stroke();
+      ctx.fillText(names[k], ox + v[0] * (len + 8 * d), oy - v[1] * (len + 8 * d));
+    });
+    if (note) {
+      ctx.fillStyle = T.inkCss;
+      ctx.textAlign = "center";
+      ctx.fillText(note, pr.W / 2, 16 * d);
+    }
+  };
+  Panel.prototype.events = function () {
+    var p = this, V = this.v, cv = this.canvas, pts = {}, last = null, pinch = null;
+    function count() { return Object.keys(pts).length; }
+    function pair() {
+      var ids = Object.keys(pts), a = pts[ids[0]], b = pts[ids[1]];
+      return { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 };
+    }
+    cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    cv.addEventListener("pointerdown", function (e) {
+      if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId);
+      pts[e.pointerId] = [e.clientX, e.clientY];
+      V.active = p;
+      last = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.button === 1 || e.shiftKey };
+      if (count() === 2) {
+        var q = pair(), c = V.cam(p);
+        pinch = { d: q.d, x: q.x, y: q.y, zoom: c.zoom, px: c.px, py: c.py };
+      }
+      cv.style.cursor = "grabbing";
+    });
+    cv.addEventListener("pointermove", function (e) {
+      if (!pts[e.pointerId]) return;
+      pts[e.pointerId] = [e.clientX, e.clientY];
+      var c = V.cam(p), q, dx, dy;
+      if (count() >= 2 && pinch) { // pinch: zoom + pan
+        q = pair();
+        c.zoom = clamp((pinch.zoom * q.d) / pinch.d, 0.2, 25);
+        c.px = pinch.px + q.x - pinch.x;
+        c.py = pinch.py + q.y - pinch.y;
+      } else if (last) {
+        dx = e.clientX - last.x;
+        dy = e.clientY - last.y;
+        last.x = e.clientX;
+        last.y = e.clientY;
+        if (last.pan) { c.px += dx; c.py += dy; }
+        else { c.th += dx * 0.01; c.ph = clamp(c.ph + dy * 0.01, -1.5707, 1.5707); }
+      }
+      V.redraw(true);
+    });
+    function up(e) {
+      if (!pts[e.pointerId]) return;
+      delete pts[e.pointerId];
+      pinch = last = null;
+      if (count() === 1) {
+        var r = pts[Object.keys(pts)[0]];
+        last = { x: r[0], y: r[1], pan: false };
+      }
+      if (!count()) cv.style.cursor = "";
+      V.redraw(false);
+    }
+    cv.addEventListener("pointerup", up);
+    cv.addEventListener("pointercancel", up);
+    cv.addEventListener("wheel", function (e) {
+      e.preventDefault();
+      var c = V.cam(p);
+      c.zoom = clamp(c.zoom * Math.exp(-e.deltaY * (e.deltaMode ? 0.05 : 0.0015)), 0.2, 25);
+      V.redraw(true);
+    }, { passive: false });
+    cv.addEventListener("dblclick", function () { V.resetView(p); });
+    cv.addEventListener("keydown", function (e) {
+      var c = V.cam(p), k = e.key, hit = true;
+      if (k === "ArrowLeft") c.th -= 0.08;
+      else if (k === "ArrowRight") c.th += 0.08;
+      else if (k === "ArrowUp") c.ph = clamp(c.ph - 0.08, -1.5707, 1.5707);
+      else if (k === "ArrowDown") c.ph = clamp(c.ph + 0.08, -1.5707, 1.5707);
+      else if (k === "+" || k === "=") c.zoom = Math.min(25, c.zoom * 1.15);
+      else if (k === "-" || k === "_") c.zoom = Math.max(0.2, c.zoom / 1.15);
+      else if (k === "0") c.reset();
+      else hit = false;
+      if (hit) { e.preventDefault(); V.redraw(false); }
+    });
+  };
+
+  // ---- the viewer --------------------------------------------------------------------------------
+  function Viewer(host, P) {
+    var self = this, s = P.shape, sl = P.slice || {}, rec = P.volumes[1], i, wrap, mq, on;
+    this.el = host;
+    this.P = P;
+    this.N = s[0] * s[1] * s[2];
+    if (P.axis == null) P.axis = 2;
+    P.axes = P.axes || ["x", "y", "z"];
+    this.rule = copy(P.threshold);
+    this.how = P.level_rule || "matched";
+    this.tf = P.transform || null;
+    this.tkey = tkey(this.tf);
+    if (!(this.tkey in TRANSFORMS)) TRANSFORMS[this.tkey] = this.tf;
+    this.mode = P.mode || "voxels";
+    this.alpha = P.opacity || 1;
+    this.stretch = P.stretch || 1;
+    this.overlay = !!P.overlay;
+    this.shading = "smooth";
+    this.link = true;
+    this.shared = new Camera();
+    this.center = P.center || [s[0] >> 1, s[1] >> 1, s[2] >> 1];
+    this.sliceAxis = sl.axis == null ? P.axis : sl.axis;
+    this.sliceIdx = sl.index == null ? this.center[this.sliceAxis] : sl.index;
+    this.lut = lut(P.cmap);
+    this.lut32 = new Uint32Array(256);
+    for (i = 0; i < 256; i++) this.lut32[i] = pack(this.lut[3 * i], this.lut[3 * i + 1], this.lut[3 * i + 2]);
+    host.textContent = "";
+    this.readTheme();
+    if (P.title) el("div", "nefi-vv-title", host, P.title);
+    wrap = el("div", "nefi-vv-panels", host);
+    this.panels = P.volumes.map(function (vol, k) { return new Panel(self, vol, k, wrap); });
+    this.manual = rec && rec.level != null ? rec.level : levelOf(this.rule, P.vmax, P.vmin);
+    this.geo = new Geometry(P, this.stretch);
+    this.controls();
+    this.applyTransform();
+    this.update(true);
+    this.panels.forEach(function (p) { p.draw(false); });
+    if (root.ResizeObserver) new root.ResizeObserver(function () { self.redraw(false); }).observe(wrap);
+    else root.addEventListener("resize", function () { self.redraw(false); });
+    if (root.matchMedia) {
+      mq = root.matchMedia("(prefers-color-scheme: dark)");
+      on = function () { self.readTheme(); self.update(false); };
+      if (mq.addEventListener) mq.addEventListener("change", on);
+      else if (mq.addListener) mq.addListener(on);
+    }
+  }
+  Viewer.prototype.readTheme = function () {
+    var cs = root.getComputedStyle ? root.getComputedStyle(this.el) : null;
+    function get(n, fb) { return rgbOf(cs ? cs.getPropertyValue(n).trim() : "", fb); }
+    var T = { bg: get("--vv-bg", "#fcfcfb"), ink: get("--vv-ink", "#0b0b0b"), muted: get("--vv-muted", "#898781"),
+      accent: get("--vv-accent", "#2a78d6"), bad: get("--vv-bad", "#dddcd6") };
+    T.dark = T.bg[0] * 0.3 + T.bg[1] * 0.59 + T.bg[2] * 0.11 < 128;
+    T.bg32 = pack(T.bg[0], T.bg[1], T.bg[2]);
+    T.bad32 = pack(T.bad[0], T.bad[1], T.bad[2]);
+    T.muted32 = pack(T.muted[0], T.muted[1], T.muted[2]);
+    T.accent32 = pack(T.accent[0], T.accent[1], T.accent[2]);
+    T.mutedCss = cssOf(T.muted);
+    T.inkCss = cssOf(T.ink);
+    T.gt = rgbOf(T.dark ? "#bdbcb2" : "#a9a79d", "#a9a79d");
+    this.theme = T;
+  };
+  Viewer.prototype.surface = function (k) { // GT neutral, reconstructions the categorical slots
+    var pal = this.theme.dark ? PALETTE_DARK : PALETTE;
+    return k ? rgbOf(pal[(k - 1) % pal.length], "#2a78d6") : this.theme.gt;
+  };
+  Viewer.prototype.cam = function (p) { return this.link ? this.shared : p.cam; };
+  Viewer.prototype.isDefault = function (gtOnly) { // defaults of the GT rule (and of the recon level)
+    var r = this.rule, d = this.P.threshold;
+    return (gtOnly || (this.how === (this.P.level_rule || "matched") && this.tkey === tkey(this.P.transform))) &&
+      r.side === d.side && (r.mode === "relative" ? r.fraction === d.fraction : r.value === d.value);
+  };
+  Viewer.prototype.applyTransform = function () {
+    var self = this;
+    this.panels.forEach(function (p, k) {
+      var on = k > 0 && !!self.tf;
+      p.setValues(on ? transform(p.raw, self.P.shape, self.tf) : p.raw, on);
+      p.head.textContent = p.vol.name + (on ? " (" + tlabel(self.tf) + ")" : "");
+    });
+  };
+  // levels, voxel sets and overlaps: the GT by its rule, reconstructions by the level rule
+  Viewer.prototype.computeLevels = function (initial) {
+    var ps = this.panels, ref = ps[0], r = this.rule, side = r.side, dflt = initial || this.isDefault(), k, p, t, o;
+    ref.level = levelOf(r, ref.ext[1], ref.ext[0]);
+    ref.select(r);
+    for (k = 1; k < ps.length; k++) {
+      p = ps[k];
+      if (dflt && p.vol.level != null) t = p.vol.level; // exactly the Python value
+      else if (this.how === "fixed") t = levelOf(r, p.ext[1], p.ext[0]);
+      else if (this.how === "matched") t = matchedLevel(p.sorted || (p.sorted = sortedFinite(p.vals)), side, ref.count);
+      else if (this.how === "otsu") t = otsuLevel(p.vals);
+      else t = this.manual;
+      p.level = t;
+      p.select(this.how === "fixed" ? r : { mode: "absolute", side: side, value: t });
+      o = overlap(ref.mask, p.mask);
+      p.iou = o[0];
+      p.dice = o[1];
+    }
+  };
+  Viewer.prototype.update = function (initial) {
+    var self = this, r = this.rule, sym = r.side === "below" ? " < " : " > ", q = this.P.label || "value";
+    this.computeLevels(initial);
+    this.panels.forEach(function (p, k) {
+      var txt = q + sym + fmt(p.level);
+      if (!k) txt += " · " + p.count + " voxels";
+      else txt += " (" + RULES[self.how] + ") · IoU " + (isNaN(p.iou) ? "—" : p.iou.toFixed(3)) +
+        " · Dice " + (isNaN(p.dice) ? "—" : p.dice.toFixed(3));
+      p.info.textContent = txt;
+      p.texture();
+    });
+    this.syncControls();
+    this.redraw(false);
+  };
+  Viewer.prototype.redraw = function (fast) { // coalesced; a fast (1x) frame is refined when idle
+    var self = this;
+    this.fast = !!fast;
+    if (this.pending) return;
+    this.pending = true;
+    raf(function () {
+      var f = self.fast;
+      self.pending = false;
+      self.panels.forEach(function (p) { p.draw(f); });
+      clearTimeout(self.idle);
+      if (f) self.idle = setTimeout(function () { self.redraw(false); }, 200);
+    });
+  };
+  Viewer.prototype.resetView = function (p) {
+    if (this.link) this.shared.reset();
+    else (p ? [p] : this.panels).forEach(function (q) { q.cam.reset(); });
+    this.redraw(false);
+  };
+
+  // ---- controls ---------------------------------------------------------------------------------
+  function group(box, label) {
+    var g = el("label", "nefi-vv-group", box);
+    el("span", "nefi-vv-lab", g, label);
+    return g;
+  }
+  function choice(parent, opts, value, fn) {
+    var s = el("select", null, parent);
+    opts.forEach(function (o) { el("option", null, s, o[1]).value = o[0]; });
+    s.value = value;
+    s.addEventListener("change", function () { fn(s.value); });
+    return s;
+  }
+  function slider(parent, label, min, max, step, value, fn) {
+    var r = el("input", null, parent);
+    r.type = "range";
+    r.min = min;
+    r.max = max;
+    r.step = step;
+    r.value = value;
+    r.setAttribute("aria-label", label);
+    r.addEventListener("input", function () { fn(+r.value); });
+    return r;
+  }
+  function button(parent, text, title, fn) {
+    var b = el("button", null, parent, text);
+    b.type = "button";
+    if (title) b.title = title;
+    b.addEventListener("click", fn);
+    return b;
+  }
+  function checkbox(box, label, value, fn) {
+    var g = el("label", "nefi-vv-group", box), c = el("input", null, g);
+    c.type = "checkbox";
+    c.checked = value;
+    c.setAttribute("aria-label", label);
+    el("span", null, g, label);
+    c.addEventListener("change", function () { fn(c.checked); });
+    return c;
+  }
+  Viewer.prototype.controls = function () {
+    var self = this, P = this.P, r0 = P.threshold, multi = P.volumes.length > 1, rel = this.rule.mode === "relative";
+    var box = el("div", "nefi-vv-controls", this.el), lo = Math.min(P.vmin, rel ? P.vmin : this.rule.value);
+    var hi = Math.max(P.vmax, rel ? P.vmax : this.rule.value), g, st, i, j, stops = [], cb, grad;
+    this.modeSel = choice(group(box, "view"), [["iso", "isosurface"], ["voxels", "voxels"], ["slice", "slice"],
+      ["iso+slice", "isosurface + slice"], ["voxels+slice", "voxels + slice"]], this.mode, function (v) {
+      self.mode = v;
+      self.syncControls();
+      self.redraw(false);
+    });
+    g = group(box, multi ? "GT threshold" : "threshold");
+    this.sideBtn = button(g, "", "select voxels below / above the threshold", function () {
+      self.rule.side = self.rule.side === "below" ? "above" : "below";
+      self.update(false);
+    });
+    this.thr = rel
+      ? slider(g, "GT threshold, fraction of the peak", 0, 1, 0.01, this.rule.fraction, function (v) {
+        self.rule.fraction = v;
+        self.update(false);
+      })
+      : slider(g, "GT threshold", lo, hi, (hi - lo) / 1000 || 1e-6, this.rule.value, function (v) {
+        self.rule.value = v;
+        self.update(false);
+      });
+    this.thrVal = el("span", "nefi-vv-val", g);
+    button(g, "↺", "back to the default rule: " + (r0.source || ""), function () {
+      self.rule = copy(r0);
+      self.how = P.level_rule || "matched";
+      self.thr.value = rel ? self.rule.fraction : self.rule.value;
+      if (self.howSel) self.howSel.value = self.how;
+      self.update(false);
+    });
+    if (multi) {
+      g = group(box, "recon level");
+      this.howSel = choice(g, [["matched", RULES.matched], ["fixed", RULES.fixed], ["otsu", RULES.otsu],
+        ["manual", RULES.manual]], this.how, function (v) {
+        self.how = v;
+        if (v === "manual") self.manSl.value = self.manual;
+        self.update(false);
+      });
+      this.manSl = slider(g, "manual reconstruction level", P.vmin, P.vmax, (P.vmax - P.vmin) / 1000 || 1e-6,
+        this.manual, function (v) {
+          self.manual = v;
+          self.how = self.howSel.value = "manual";
+          self.update(false);
+        });
+      this.tfSel = choice(group(box, "display"), Object.keys(TRANSFORMS).map(function (k) {
+        return [k, k === "none" ? "raw" : tlabel(TRANSFORMS[k]).replace("display: ", "")];
+      }), this.tkey, function (v) {
+        self.tf = TRANSFORMS[v];
+        self.tkey = v;
+        self.applyTransform();
+        self.update(false);
+      });
+      checkbox(box, "GT overlay", this.overlay, function (v) { self.overlay = v; self.redraw(false); });
+    }
+    choice(group(box, "shading"), [["smooth", "smooth"], ["flat", "flat"]], this.shading, function (v) {
+      self.shading = v;
+      self.redraw(false);
+    });
+    slider(group(box, "voxel opacity"), "voxel opacity", 0.05, 1, 0.05, this.alpha, function (v) {
+      self.alpha = v;
+      self.redraw(false);
+    });
+    g = this.sliceGroup = group(box, "slice");
+    this.axisSel = choice(g, P.axes.map(function (a, k) { return [String(k), a]; }), String(this.sliceAxis),
+      function (v) {
+        self.sliceAxis = +v;
+        self.sliceIdx = self.center[self.sliceAxis];
+        self.idxSl.max = P.shape[self.sliceAxis] - 1;
+        self.idxSl.value = self.sliceIdx;
+        self.slice();
+      });
+    this.idxSl = slider(g, "slice index", 0, P.shape[this.sliceAxis] - 1, 1, this.sliceIdx, function (v) {
+      self.sliceIdx = v;
+      self.slice();
+    });
+    this.sliceVal = el("span", "nefi-vv-val", g);
+    st = [1, 2, 4, 8];
+    if (st.indexOf(this.stretch) < 0) st.push(this.stretch);
+    st.sort(function (a, b) { return a - b; });
+    choice(group(box, P.axes[P.axis] + " stretch"), st.map(function (v) { return [String(v), "×" + fmt(v)]; }),
+      String(this.stretch), function (v) {
+        self.stretch = +v;
+        self.geo = new Geometry(P, self.stretch);
+        self.redraw(false);
+      });
+    if (multi)
+      checkbox(box, "link cameras", true, function (v) {
+        if (v) self.shared = (self.active ? self.active.cam : self.shared).copy();
+        else self.panels.forEach(function (p) { p.cam = self.shared.copy(); });
+        self.link = v;
+        self.redraw(false);
+      });
+    button(box, "reset view", "reset the camera", function () { self.resetView(null); });
+    cb = el("div", "nefi-vv-cbar", this.el);
+    el("span", "nefi-vv-val", cb, fmt(P.vmin));
+    grad = el("div", "nefi-vv-grad", cb);
+    for (i = 0; i <= 16; i++) {
+      j = Math.min(255, i * 16) * 3;
+      stops.push("rgb(" + this.lut[j] + "," + this.lut[j + 1] + "," + this.lut[j + 2] + ")");
+    }
+    grad.style.background = "linear-gradient(to right," + stops.join(",") + ")";
+    this.marks = P.volumes.map(function (v, k) { return el("i", "nefi-vv-mark" + (k ? " alt" : ""), grad); });
+    el("span", "nefi-vv-val", cb, fmt(P.vmax));
+    el("span", "nefi-vv-lab", cb, (P.label || "") + " colour scale (voxels, slice); ticks: levels");
+    this.infoLine = el("div", "nefi-vv-info", this.el);
+    el("div", "nefi-vv-help", this.el, "drag: rotate · wheel / pinch: zoom · right-drag or shift-drag: pan · " +
+      "double-click: reset · arrows, + / −, 0 on a focused view");
+  };
+  Viewer.prototype.slice = function () {
+    if (this.mode.indexOf("slice") < 0) {
+      this.mode = this.mode === "iso" ? "iso+slice" : "voxels+slice";
+      this.modeSel.value = this.mode;
+    }
+    this.panels.forEach(function (p) { p.texture(); });
+    this.syncControls();
+    this.redraw(false);
+  };
+  Viewer.prototype.syncControls = function () {
+    var P = this.P, r = this.rule, below = r.side === "below", q = P.label || "value", span = P.vmax - P.vmin || 1;
+    var self = this, a = this.sliceAxis, n = P.shape[a], e = P.extent[a], srcs;
+    this.sideBtn.textContent = below ? "<" : ">";
+    this.thrVal.textContent = r.mode === "relative"
+      ? (below ? "deficit > " : "excess > ") + Math.round(r.fraction * 100) + "% of peak"
+      : q + (below ? " < " : " > ") + fmt(r.value);
+    this.marks.forEach(function (m, k) {
+      var t = self.panels[k].level;
+      m.style.left = 100 * clamp((t - P.vmin) / span, 0, 1) + "%";
+      m.style.display = isFinite(t) ? "" : "none";
+      m.title = P.volumes[k].name + ": " + fmt(t);
+    });
+    if (this.manSl) this.manSl.style.opacity = this.how === "manual" ? "" : "0.45";
+    this.sliceVal.textContent = P.axes[a] + " = " + fmt(e[0] + ((this.sliceIdx + 0.5) * (e[1] - e[0])) / n) +
+      " (" + (this.sliceIdx + 1) + "/" + n + ")";
+    this.sliceGroup.style.opacity = this.mode.indexOf("slice") >= 0 ? "" : "0.45";
+    srcs = this.panels.map(function (p) { return p.mesh && p.mesh.src; }).filter(Boolean);
+    this.infoLine.textContent = "grid " + P.shape.join("×") +
+      (P.downsampled ? " (area-averaged from " + P.source_shape.join("×") + ")" : "") + " · " +
+      P.axes.map(function (x, k) { return x + " " + fmt(P.extent[k][0]) + "–" + fmt(P.extent[k][1]); }).join(", ") +
+      " · GT: " + ((P.threshold && P.threshold.source) || "given threshold") +
+      (P.volumes.length > 1 ? " · recon: " + RULES[this.how] + " level" : "") +
+      (this.tf ? " · " + tlabel(this.tf) : "") +
+      (srcs.length && this.mode.indexOf("iso") >= 0 ? " · isosurface: " + srcs[srcs.length - 1] : "");
+  };
+
+  // ---- mounting ---------------------------------------------------------------------------------
+  var API = {
+    version: 2,
+    mount: function (id) {
+      var host = doc.getElementById(id), data = doc.getElementById(id + "-data");
+      if (!host || !data || host.getAttribute("data-mounted")) return null;
+      host.setAttribute("data-mounted", "1");
+      try {
+        return (host.viewer = new Viewer(host, JSON.parse(data.textContent)));
+      } catch (err) {
+        host.textContent = "3-D viewer failed: " + err;
+        if (root.console) root.console.error(err);
+        return null;
+      }
+    },
+    flush: function () {
+      var q = (root.NefiVolumeViewerQueue = root.NefiVolumeViewerQueue || []);
+      if (doc) while (q.length) API.mount(q.shift());
+    },
+    // pure helpers, exported for tests and tools
+    decode: decode, decodeMesh: decodeMesh, select: select, levelOf: levelOf, matchedLevel: matchedLevel,
+    sortedFinite: sortedFinite, otsuLevel: otsuLevel, overlap: overlap, transform: transform,
+    isoMesh: isoMesh, lut: lut
+  };
+  root.NefiVolumeViewer = API;
+  API.flush();
+})(typeof window !== "undefined" ? window : globalThis);

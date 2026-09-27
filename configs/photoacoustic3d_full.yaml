@@ -1,0 +1,57 @@
+# photoacoustic3d — production-scale run (CUDA server): 12 × 12 × 8 mm slab at 0.25 mm voxels
+# (48×48×32), 16×16 planar sensor array, 12 µs records at 0.25 µs, every field of
+# Photoacoustic3DConfig spelled out, a 2.5× longer curriculum than the defaults. Each step is one
+# leapfrog run (≈ 150 steps, one conv3d each) forward and its reverse-mode adjoint; grad_mode:
+# checkpoint bounds the activation memory to O(sqrt(n_steps)) states for larger grids. For a
+# stencil-independent inverse-crime guard set gen_order: 4 (≈ 5× slower data generation) and
+# order: 4 for accuracy on the servers.
+# Usage (server):  python examples/photoacoustic3d.py --config configs/photoacoustic3d_full.yaml --device cuda
+#                  nefi bench configs/photoacoustic3d_full.yaml --n 8 --seeds 0,1,2 --classes all
+instance: photoacoustic3d
+config:
+  extent: [12.0, 12.0, 8.0]  # mm; last axis = depth, sensors on the top face
+  grid: [48, 48, 32]
+  sound_speed: 1.5           # mm/µs (soft tissue)
+  sensor_grid: [16, 16]
+  sensor_span: 0.9
+  sensor_depth: 0.0
+  sensor_fc: 1.0             # MHz, Gaussian sensor bandwidth (null = ideal sensors)
+  t_max: 12.0                # µs
+  dt_obs: 0.25               # µs
+  order: 2                   # Laplacian stencil order of the inversion (2 | 4)
+  absorbing: sponge          # sponge | cerjan (the 3-D solver has no PML)
+  absorb_width: 1.0          # mm
+  absorb_R: 1.0e-3
+  courant: 0.9
+  grad_mode: autograd        # autograd | checkpoint
+  checkpoint_every: null
+  noise_std: 0.02            # relative to max |trace|
+  supersample: 2             # data: 2x grid, float64
+  gen_order: 2
+  scene: vessels             # vessels | spheres
+  vessel_radius: [0.3, 0.6]  # mm
+  sphere_radius: [0.6, 1.5]  # mm
+  edge_width: 0.15           # mm, tanh edges (band-limited p0)
+  depth_range: [0.15, 0.8]
+  render_factor: 2
+  init_value: 0.02
+  tv: 1.0e-4
+  tv_eps: 1.0e-3
+  l1: 0.0
+  hidden: 128
+  depth: 4
+  skip_at: 2
+  n_octaves: 5
+  activation: tanh
+  steps: [750, 1250]
+  lr: 1.0e-2
+  lr_decay: 0.5
+  anneal_fraction: 0.3
+  min_coarse: 8
+  grid_lr: 5.0e-2
+  tr_mode: dirichlet         # dirichlet (k-Wave time reversal) | adjoint
+run:
+  seed: 0
+  device: auto
+  methods: [neural, time_reversal, grid]
+  out: runs/photoacoustic3d_full

@@ -1,0 +1,60 @@
+# dot3d — production-scale run (CUDA server; also fine on CPU in a few minutes): 40 × 40 × 20 mm
+# slab on 32×32×16 voxels (1.25 mm), all fields of DOT3DConfig spelled out, a 2× longer curriculum
+# than the defaults. Every step is two batched Jacobi-PCG solves (forward + IFT adjoint) with
+# warm starts; set check_every: 8 on CUDA to avoid a host sync per CG iteration. Suggested larger
+# settings: grid [48, 48, 24], source_grid [4, 4], detector_grid [16, 16], hidden 256.
+# Usage (server):  python examples/dot3d.py --config configs/dot3d_full.yaml --device cuda
+#                  nefi bench configs/dot3d_full.yaml --n 8 --seeds 0,1,2 --classes all
+instance: dot3d
+config:
+  extent: [40.0, 40.0, 20.0]     # mm; last axis = depth (top face z = 0 is imaged)
+  grid: [32, 32, 16]
+  musp: 1.0                  # reduced scattering (1/mm); D = 1/(3 μs') is known
+  refractive_index: 1.4      # Robin factor A ≈ 3.25 (Groenhuis fit)
+  mua_background: 0.01       # 1/mm (known background, reference of the calibration)
+  source_grid: [3, 3]        # point sources 1/μs' below the top face
+  source_span: 0.6           # fraction of the face spanned by the sources
+  detector_grid: [12, 12]    # square detector pixels on the top face
+  detector_span: 0.85
+  detector_samples: 3        # footprint sub-samples per axis
+  min_separation: 6.0        # mm; closer source-detector pairs are unobserved
+  calibrate: true            # divide by the homogeneous-reference readings (normalized data)
+  noise_std: 0.01            # relative (multiplicative) noise
+  supersample: 2             # data: same physics on a 2x grid, float64
+  tol: 1.0e-7                # PCG relative tolerance (float32 floor ≈ 1e-6)
+  max_iter: null
+  check_every: 1             # 8 on CUDA
+  warm_start: true
+  scene: single              # single | multi | deep
+  inclusion_mua: [0.03, 0.05]
+  inclusion_radius: [3.0, 5.0]
+  depth_single: [5.0, 8.0]
+  depth_multi: [4.0, 11.0]
+  depth_deep: [10.0, 13.0]
+  lateral_span: 0.5
+  render_factor: 2
+  mua_min: 0.008             # head bounds; mua_min just below the background = absorbers-only prior
+  mua_max: 0.1
+  log_param: false           # true: log-uniform LogBounded head
+  hidden: 128
+  depth: 4
+  skip_at: 2
+  n_octaves: 4
+  activation: relu           # as NeFTY's volumetric field
+  tv: 1.0
+  tv_eps: 1.0e-4
+  steps: [600, 1200]
+  lr: 1.0e-2
+  lr_decay: 0.5
+  anneal_fraction: 0.3
+  min_coarse: 6
+  iou_fraction: 0.5          # inclusion masks at half the peak absorption excess
+  grid_lr: 5.0e-2
+  dd_lr: 5.0e-3
+  dd_width: 64
+  dd_stages: 3
+run:
+  seed: 0
+  device: auto
+  methods: [neural, grid, deep_decoder]
+  out: runs/dot3d_full

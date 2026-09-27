@@ -1,0 +1,19 @@
+# Conda environment for nefi (CUDA servers and local development).
+#   conda env create -f environment.yml && conda activate nefi
+# The pip `torch` wheel on Linux ships its own CUDA runtime (driver >= 525 for cu12x); to pin a
+# CUDA version use e.g. `pip install torch --index-url https://download.pytorch.org/whl/cu121`
+# before `pip install -e ".[dev]"`. CPU-only machines can use the same file.
+name: nefi
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy>=1.24
+  - scipy>=1.10
+  - pyyaml>=6
+  - tqdm>=4.60
+  - matplotlib>=3.7
+  - pip:
+      - torch>=2.1
+      - -e .[dev]

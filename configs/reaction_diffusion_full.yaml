@@ -1,0 +1,29 @@
+# reaction_diffusion — production-scale run (CUDA server): 128×128 grid over [0, 2.56]² (same
+# resolution as the smoke run, 16x the area), six snapshots up to t = 200, block-checkpointed
+# gradients (memory ∝ sqrt(n_steps)).
+# Usage (server):  python examples/reaction_diffusion.py \
+#                      --config configs/reaction_diffusion_full.yaml --device cuda
+instance: reaction_diffusion
+config:
+  n: 128
+  extent: 2.56
+  scene: stripes
+  F_background: 0.045
+  F_amplitude: 0.015
+  k: 0.06
+  obs_times: [25.0, 50.0, 75.0, 100.0, 150.0, 200.0]
+  observe: [u, v]
+  noise_std: 0.01
+  gen_substeps: 4
+  grad_mode: checkpoint
+  hidden: 256
+  depth: 6
+  n_octaves: 7               # 64 cycles = Nyquist at 128 px
+  tv: 1.0e-4
+  steps: [1500, 3500]
+  lr: 2.0e-3
+run:
+  seed: 0
+  device: cuda
+  methods: [neural, grid]
+  out: runs/reaction_diffusion_full

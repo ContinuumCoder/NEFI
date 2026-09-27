@@ -1,0 +1,10 @@
+# Runtime dependencies of nefi (mirrors pyproject.toml; `pip install -e .` is preferred).
+torch>=2.1
+numpy>=1.24
+scipy>=1.10
+pyyaml>=6
+tqdm>=4.60
+# optional: plots (--plot, nefi.diagnostics.plots) and the nicer CLI front-end
+matplotlib>=3.7
+typer>=0.9
+rich>=13

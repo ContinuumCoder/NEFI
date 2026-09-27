@@ -1,0 +1,66 @@
+cff-version: 1.2.0
+message: >-
+  If you use nefi, please cite the two papers it implements (listed under "references").
+  The software itself can be cited with the metadata below.
+title: "nefi: Neural-Field Inversion"
+type: software
+authors:
+  - name: "CAB Lab, Princeton University"
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/ContinuumCoder/NEFI"
+url: "https://continuumcoder.github.io/NEFI/"
+abstract: >-
+  nefi solves physics-faithful, label-free inverse problems: the unknown is represented by a
+  coordinate neural field (or any other parameterization), pushed through a differentiable
+  forward model of the instrument as a hard constraint, and optimized for a single measurement
+  with a coarse-to-fine, frequency-annealed curriculum. The library generalizes the NeTMY and
+  NeFTY papers and ships diagnostics, a benchmark protocol with an inverse-crime guard,
+  auto-tuning, edge refinement, visualization and seventeen registered problems from 1-D to 3-D.
+keywords:
+  - inverse problems
+  - neural fields
+  - differentiable physics
+  - scientific machine learning
+  - computational imaging
+references:
+  - type: article
+    title: "Neural Fields for NV-Center Inverse Sensing"
+    authors:
+      - family-names: Zhao
+        given-names: Zhixuan
+      - family-names: Zhong
+        given-names: Tao
+      - family-names: Hu
+        given-names: Yixun
+      - family-names: de Leon
+        given-names: Nathalie P.
+      - family-names: Allen-Blanchette
+        given-names: Christine
+    journal: "arXiv preprint arXiv:2605.13988"
+    year: 2026
+    url: "https://arxiv.org/abs/2605.13988"
+    identifiers:
+      - type: other
+        value: "arXiv:2605.13988"
+        description: arXiv identifier
+  - type: article
+    title: "Neural Field Thermal Tomography: A Differentiable Physics Framework for Non-Destructive Evaluation"
+    authors:
+      - family-names: Zhong
+        given-names: Tao
+      - family-names: Hu
+        given-names: Yixun
+      - family-names: Zheng
+        given-names: Dongzhe
+      - family-names: Sood
+        given-names: Aditya
+      - family-names: Allen-Blanchette
+        given-names: Christine
+    journal: "arXiv preprint arXiv:2603.11045"
+    year: 2026
+    url: "https://arxiv.org/abs/2603.11045"
+    identifiers:
+      - type: other
+        value: "arXiv:2603.11045"
+        description: arXiv identifier

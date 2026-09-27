@@ -1,0 +1,22 @@
+# sparse_view_ct — tiny local smoke run (CPU, ~4 s): 32×32 Shepp-Logan-like phantom, 16 views
+# over 180°, 1 % sinogram noise, 16² → 32² curriculum with 150 + 300 steps.
+# Usage:  python examples/sparse_view_ct.py --config configs/sparse_view_ct_smoke.yaml
+#         nefi run sparse_view_ct --smoke
+instance: sparse_view_ct
+config:
+  n: 32
+  n_views: 16
+  scene: shepp               # shepp | blobs | piecewise
+  noise_std: 0.01
+  hidden: 64
+  depth: 3
+  n_octaves: 5
+  steps: [150, 300]
+  lr: 2.0e-2
+  tv: 2.0e-5
+  dd_width: 32
+run:
+  seed: 0
+  device: auto
+  methods: [neural, fbp, grid, deep_decoder]
+  out: runs/sparse_view_ct_smoke
