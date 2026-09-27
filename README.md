@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <b>Neural-Field Inversion</b>: physics-faithful, label-free inverse problems.<br>
-  A coordinate neural field is fitted through your instrument's physics, from a single measurement, with no training data.
+  <b>Neural-Field Inversion</b> recovers hidden physical fields from a single measurement and a differentiable model of the instrument.<br>
+  The physics is enforced exactly, a coordinate neural field represents the unknown, and no training data is needed.
 </p>
 
 <p align="center">
@@ -221,9 +221,9 @@ If you use nefi, please cite the papers it implements:
 
 ## License
 
-MIT © 2026 CAB Lab, Princeton University — see [LICENSE](LICENSE).
+MIT © 2026 [CAB Lab, Princeton University](https://cablab.scholar.princeton.edu). See [LICENSE](LICENSE).
 
 ## Acknowledgements
 
-nefi is developed and maintained by the **CAB Lab at Princeton University**. It generalizes the
+nefi is developed and maintained by the [CAB Lab at Princeton University](https://cablab.scholar.princeton.edu). It generalizes the
 lab's NeTMY and NeFTY papers into one library, and we thank the authors of both papers.

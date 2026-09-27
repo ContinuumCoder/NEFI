@@ -3,7 +3,7 @@ name: pages
 # Builds the documentation site with MkDocs Material and publishes it to GitHub Pages
 # (https://continuumcoder.github.io/NEFI/). Pull requests that touch the docs only build it, in
 # strict mode, so broken links and missing pages fail before they reach main.
-# One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# The deploy job enables Pages (source: GitHub Actions) on first use.
 
 on:
   push:
@@ -56,6 +56,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Configure GitHub Pages (enables it on first use)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

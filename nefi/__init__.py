@@ -1,7 +1,7 @@
-"""nefi — Neural-Field Inversion.
+"""nefi: Neural-Field Inversion.
 
-Physics-faithful, label-free inverse problems solved by per-measurement optimization of a
-coordinate neural field through a differentiable forward operator.
+nefi recovers hidden physical fields from a single measurement by optimizing a coordinate neural
+field through a differentiable forward operator of the instrument. No training data is needed.
 
 Quick start::
 

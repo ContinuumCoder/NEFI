@@ -6,9 +6,9 @@ description: The research behind nefi — the NeTMY and NeFTY papers, the thesis
 
 # Research
 
-nefi is the software form of two papers from the CAB Lab at Princeton University. It keeps their
+nefi is the software form of two papers from the [CAB Lab at Princeton University](https://cablab.scholar.princeton.edu). It keeps their
 methods as defaults, their numbers as configuration fields, their explanations as diagnostics and
-their evaluation protocol as a benchmark harness — and generalizes the recipe to any
+their evaluation protocol as a benchmark harness, and generalizes the recipe to any
 differentiable instrument.
 
 <div class="grid cards" markdown>

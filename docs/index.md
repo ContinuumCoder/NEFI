@@ -2,8 +2,9 @@
 template: home.html
 title: nefi — Neural-Field Inversion
 description: >-
-  Physics-faithful, label-free inverse problems: a coordinate neural field, a differentiable
-  forward model as a hard constraint, one measurement, no training data.
+  nefi recovers hidden physical fields from a single measurement by fitting a coordinate neural
+  field through a differentiable model of the instrument. The physics is enforced exactly and no
+  training data is needed.
 hide:
   - navigation
   - toc
@@ -266,7 +267,7 @@ code. [Start the tutorials →](getting-started/index.md)
 
 ## Two papers, one library
 
-<p class="nf-intro">nefi generalizes two papers of the CAB Lab at Princeton University into one
+<p class="nf-intro">nefi generalizes two papers of the [CAB Lab at Princeton University](https://cablab.scholar.princeton.edu) into one
 reusable recipe. Both instances ship with paper-scale configurations.</p>
 
 <div class="nf-cols two" markdown>

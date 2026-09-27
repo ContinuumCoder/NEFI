@@ -6,16 +6,17 @@ title: "nefi: Neural-Field Inversion"
 type: software
 authors:
   - name: "CAB Lab, Princeton University"
+    website: "https://cablab.scholar.princeton.edu"
 version: 0.1.0
 license: MIT
 repository-code: "https://github.com/ContinuumCoder/NEFI"
 url: "https://continuumcoder.github.io/NEFI/"
 abstract: >-
-  nefi solves physics-faithful, label-free inverse problems: the unknown is represented by a
-  coordinate neural field (or any other parameterization), pushed through a differentiable
-  forward model of the instrument as a hard constraint, and optimized for a single measurement
-  with a coarse-to-fine, frequency-annealed curriculum. The library generalizes the NeTMY and
-  NeFTY papers and ships diagnostics, a benchmark protocol with an inverse-crime guard,
+  nefi recovers hidden physical fields from a single measurement without training data. The
+  unknown is represented by a coordinate neural field or any other parameterization, pushed
+  through a differentiable forward model of the instrument as a hard constraint, and optimized
+  with an adaptive coarse-to-fine, frequency-annealed curriculum. The library generalizes the
+  NeTMY and NeFTY papers and ships diagnostics, a benchmark protocol with an inverse-crime guard,
   auto-tuning, edge refinement, visualization and seventeen registered problems from 1-D to 3-D.
 keywords:
   - inverse problems

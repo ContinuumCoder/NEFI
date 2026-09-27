@@ -190,6 +190,18 @@
   align-items: center;
   padding: 3rem 0.8rem 2.2rem;
 }
+.nf-hero__lab {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 0.2em;
+}
+.nf-hero__lab:hover,
+.nf-hero__lab:focus-visible {
+  color: inherit;
+  text-decoration-color: currentColor;
+}
+
 .nf-hero__eyebrow {
   display: inline-flex;
   align-items: center;

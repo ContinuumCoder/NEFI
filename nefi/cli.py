@@ -104,6 +104,12 @@ class RunSpec:
     smoke: str | None = None
 
 
+CLI_DESCRIPTION = (
+    "nefi recovers hidden physical fields from a single measurement, with a differentiable model "
+    "of the instrument and no training data."
+)
+
+
 def config_dirs() -> list[Path]:
     """Directories searched for ``<instance>_smoke.yaml`` and listed by ``nefi list configs``."""
     dirs = []
@@ -1263,7 +1269,7 @@ def build_parser():
 
     p = argparse.ArgumentParser(
         prog="nefi",
-        description="nefi — Neural-Field Inversion: physics-faithful, label-free inverse problems.",
+        description=CLI_DESCRIPTION,
     )
     p.add_argument("--version", action="version", version=f"nefi {nefi.__version__}")
     sub = p.add_subparsers(dest="command", metavar="COMMAND")
@@ -1313,9 +1319,25 @@ def _main_argparse(argv: list[str]) -> int:
 def _typer_available() -> bool:
     try:
         import typer  # noqa: F401
+        from typer.main import get_command  # noqa: F401
     except ImportError:
         return False
     return True
+
+
+def _typer_click():
+    """The click implementation typer runs on.
+
+    typer < 0.27 builds on the standalone ``click`` package; from 0.27 on it ships its own copy as
+    ``typer._click`` and no longer depends on ``click``. The exceptions a command raises come from
+    whichever of the two typer imported, so resolve the module through ``typer.main``.
+    """
+    import typer.main as typer_main
+
+    module = getattr(typer_main, "click", None) or getattr(typer_main, "_click", None)
+    if module is None:  # pragma: no cover - unknown layout: try the standalone package
+        import click as module
+    return module
 
 
 def _typer_callback(cmd: Command):
@@ -1357,7 +1379,7 @@ def build_typer_app():
     import typer
 
     kw: dict[str, Any] = {
-        "help": "nefi — Neural-Field Inversion: physics-faithful, label-free inverse problems.",
+        "help": CLI_DESCRIPTION,
         "add_completion": False,
         "no_args_is_help": True,
     }
@@ -1385,18 +1407,21 @@ def build_typer_app():
 
 
 def _main_typer(argv: list[str]) -> int:
-    import click
+    import typer
     from typer.main import get_command
 
+    click = _typer_click()
     command = get_command(build_typer_app())
     try:
         rv = command.main(args=argv, prog_name="nefi", standalone_mode=False)
     except click.ClickException as e:
         e.show()
         return int(e.exit_code)
-    except click.exceptions.Abort:
+    except typer.Abort:
         print("Aborted!", file=sys.stderr)
         return 1
+    except typer.Exit as e:
+        return int(getattr(e, "exit_code", 0) or 0)
     return int(rv or 0)
 
 

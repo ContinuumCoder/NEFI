@@ -11,8 +11,9 @@
 
 site_name: nefi
 site_description: >-
-  Neural-Field Inversion: physics-faithful, label-free inverse problems solved by optimizing a
-  coordinate neural field through a differentiable forward model, one measurement at a time.
+  nefi recovers hidden physical fields from a single measurement by fitting a coordinate neural
+  field through a differentiable model of the instrument. The physics is enforced exactly and no
+  training data is needed.
 site_author: CAB Lab, Princeton University
 site_url: https://continuumcoder.github.io/NEFI/
 repo_url: https://github.com/ContinuumCoder/NEFI
@@ -21,7 +22,7 @@ edit_uri: edit/main/docs/
 docs_dir: docs
 use_directory_urls: true
 copyright: >-
-  Copyright &copy; 2026 CAB Lab, Princeton University &middot;
+  Copyright &copy; 2026 <a href="https://cablab.scholar.princeton.edu">CAB Lab, Princeton University</a> &middot;
   <a href="https://github.com/ContinuumCoder/NEFI/blob/main/LICENSE">MIT License</a>
 
 theme:
@@ -101,6 +102,9 @@ extra:
     - icon: simple/arxiv
       link: https://arxiv.org/abs/2603.11045
       name: NeFTY on arXiv
+    - icon: material/school
+      link: https://cablab.scholar.princeton.edu
+      name: CAB Lab, Princeton University
 
 plugins:
   - search

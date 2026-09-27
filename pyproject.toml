@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nefi"
 version = "0.1.0"
-description = "Neural-field inversion: physics-faithful, label-free inverse problems via coordinate neural fields and differentiable forward operators"
+description = "Neural-field inversion: recover hidden physical fields from a single measurement with a differentiable model of the instrument and no training data"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -47,6 +47,7 @@ Homepage = "https://github.com/ContinuumCoder/NEFI"
 Documentation = "https://continuumcoder.github.io/NEFI/"
 Repository = "https://github.com/ContinuumCoder/NEFI"
 Issues = "https://github.com/ContinuumCoder/NEFI/issues"
+Lab = "https://cablab.scholar.princeton.edu"
 
 [tool.setuptools.packages.find]
 include = ["nefi*"]

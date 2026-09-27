@@ -4,7 +4,7 @@ description: nefi is released under the MIT License by the CAB Lab, Princeton Un
 
 # License & citation
 
-nefi is developed by the **CAB Lab, Princeton University**, and released under the MIT License.
+nefi is developed by the [CAB Lab, Princeton University](https://cablab.scholar.princeton.edu) and released under the MIT License.
 
 ```text
 --8<-- "LICENSE"

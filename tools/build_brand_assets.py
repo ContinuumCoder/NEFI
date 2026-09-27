@@ -213,10 +213,10 @@ def social_card(path: Path, hero: Path) -> None:
     ax.text(
         72,
         305,
-        "Physics-faithful, label-free inverse problems:\n"
-        "a coordinate neural field, a differentiable\n"
-        "forward model as a hard constraint, one\n"
-        "measurement, no training data.",
+        "Recover hidden physical fields from a single\n"
+        "measurement. A coordinate neural field is fitted\n"
+        "through a differentiable model of the instrument,\n"
+        "so no training data is needed.",
         fontsize=16,
         va="top",
         linespacing=1.45,
