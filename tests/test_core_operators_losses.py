@@ -90,7 +90,8 @@ def test_tv_and_l1_values():
     ctx = _ctx({"x": x}, x, x, dom)
     assert abs(float(TV("x", isotropic=True, eps=1e-9)(ctx)) - 1.0) < 1e-6
     assert abs(float(TV("x", isotropic=False)(ctx)) - 1.0) < 1e-6
-    assert float(TV("x")(_ctx({"x": torch.ones(10)}, x, x, dom))) < 1e-6
+    # a constant field has zero gradient, so the smoothed TV equals its eps (≈ 1e-9 here)
+    assert float(TV("x", eps=1e-9)(_ctx({"x": torch.ones(10)}, x, x, dom))) < 1e-6
     assert abs(float(L1("x")(ctx)) - 0.5) < 1e-6
     # periodic axis sees the wrap-around jump too
     assert abs(float(TV("x", isotropic=False, periodic_axes=(0,))(ctx)) - 2.0) < 1e-6

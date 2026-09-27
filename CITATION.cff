@@ -7,7 +7,8 @@ type: software
 authors:
   - name: "CAB Lab, Princeton University"
     website: "https://cablab.scholar.princeton.edu"
-version: 0.1.0
+version: 0.1.1
+date-released: "2026-09-27"
 license: MIT
 repository-code: "https://github.com/ContinuumCoder/NEFI"
 url: "https://continuumcoder.github.io/NEFI/"

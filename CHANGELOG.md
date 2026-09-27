@@ -5,6 +5,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-27
+
+### Fixed
+- The `nefi` command-line front-end works with typer 0.27 and later, which ship their own copy
+  of click instead of depending on the `click` package.
+
+### Changed
+- Package summary, README, site and citation copy describe the library in plain language.
+- The `release` workflow smoke-tests the typer front-end as well as the argparse fallback and
+  creates a GitHub Release with the built distributions and the matching changelog section.
+- The documentation site enables GitHub Pages on its first deployment and links the CAB Lab.
+
+## [0.1.0] - 2026-09-27
+
+First public release: the core library, the NeTMY (NV relaxometry) and NeFTY (thermal
+tomography) instances with paper-scale configs, diagnostics, benchmark protocol and CLI.
+
 ### Added
 - **Core**: `Domain`, `Measurement`, `Field` (`NeuralField` with annealed Fourier features,
   `GridField`), heads (`Softplus`, `Bounded`, `GatedSoftplus`, `SupportMasked`, ...), operators
@@ -146,8 +163,3 @@ All notable changes to this project are documented here. The format follows
 - `configs/thermal_tomography_paper.yaml` enables `compile_solver: true`; heat compiled sweeps clone
   their output under CUDA-graph modes; `tools/profile_instance.py` runs the real solver loop and
   reports ops/step.
-
-## [0.1.0] — planned
-
-First public release: the core library, the NeTMY (NV relaxometry) and NeFTY (thermal
-tomography) instances with paper-scale configs, diagnostics, benchmark protocol and CLI.

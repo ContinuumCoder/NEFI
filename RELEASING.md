@@ -21,12 +21,13 @@ not part of the documentation site.
 
 ```bash
 # bump the version in pyproject.toml and nefi/__init__.py, update CHANGELOG.md, then
-git tag v0.1.0
+git tag v0.1.1
 git push origin main --tags
 ```
 
 The tag triggers `.github/workflows/release.yml`: it builds the sdist and wheel, smoke-tests the
-wheel (`nefi list instances`), and publishes to PyPI. Afterwards:
+wheel with both command-line front-ends, publishes to PyPI and creates a GitHub Release whose
+notes are the matching `CHANGELOG.md` section. Afterwards:
 
 ```bash
 pip install nefi

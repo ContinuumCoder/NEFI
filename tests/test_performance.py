@@ -568,7 +568,11 @@ def test_batchable_operators_accept_a_leading_batch_axis(name, cfg):
     with torch.no_grad():
         batched = op({k: torch.stack([f[k] for f in fields]) for k in fields[0]})
         for b in range(3):
-            assert torch.allclose(batched[b], op(fields[b]), rtol=1e-6, atol=1e-7)
+            ref = op(fields[b])
+            # batched and per-sample FFT paths differ by float32 rounding (platform dependent),
+            # so the tolerance is relative to the output scale rather than absolute
+            scale = float(ref.abs().max())
+            torch.testing.assert_close(batched[b], ref, rtol=1e-5, atol=1e-6 * scale + 1e-7)
 
 
 def test_run_benchmark_batched_matches_sequential():
