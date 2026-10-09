@@ -253,11 +253,13 @@ diagnostics that explain *why* a method wins. [Benchmarking →](tutorials/06_be
 
 <div class="nf-col" markdown>
 
-### Students and labs
+### Academic labs
 
-Eight tutorials from a five-second 1-D toy to paper-scale runs on GPU servers, fully
-documented reference problems, and a line-by-line map from the papers' equations to the
-code. [Start the tutorials →](getting-started/index.md)
+Adopt one inversion toolkit for every instrument in your group: each setup becomes a registered
+problem with its own configuration, results stay reproducible from run to run, and the benchmark
+protocol yields publication-ready comparisons. New members start with eight tutorials, from a
+five-second toy to paper-scale runs on GPU servers, and a line-by-line map from the papers'
+equations to the code. [Start the tutorials →](getting-started/index.md)
 
 </div>
 
