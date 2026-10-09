@@ -6,14 +6,15 @@ description: The research behind nefi — the NeTMY and NeFTY papers, the thesis
 
 # Research
 
-nefi is the software form of two papers from the [CAB Lab at Princeton University](https://cablab.scholar.princeton.edu). It keeps their
-methods as defaults, their numbers as configuration fields, their explanations as diagnostics and
-their evaluation protocol as a benchmark harness, and generalizes the recipe to any
-differentiable instrument.
+nefi is the software form of a series of papers on neural-field inversion from the
+[CAB Lab at Princeton University](https://cablab.scholar.princeton.edu). Two are published so far, NeTMY and NeFTY. The
+library keeps their methods as defaults, their numbers as configuration fields, their explanations
+as diagnostics and their evaluation protocol as a benchmark harness, and generalizes the recipe to
+any differentiable instrument. Later papers in the series are added the same way.
 
 <div class="grid cards" markdown>
 
--   :material-file-document-multiple-outline: __[The two papers](papers.md)__
+-   :material-file-document-multiple-outline: __[The papers](papers.md)__
 
     ---
 

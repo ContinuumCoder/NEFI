@@ -46,9 +46,9 @@ description: Reference material — the API, the command line, configuration fil
 
     ---
 
-    MIT License, CAB Lab, Princeton University — and how to cite the two papers.
+    MIT License, CAB Lab, Princeton University, and how to cite the papers.
 
 </div>
 
 The [design document](../DESIGN.md) specifies the contracts every module builds against, and the
-[paper → code mapping](../paper_mapping.md) traces every equation of the two papers to the code.
+[paper → code mapping](../paper_mapping.md) traces every equation of the papers to the code.

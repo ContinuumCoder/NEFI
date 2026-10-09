@@ -148,7 +148,7 @@ and [Bring your own problem](../byop.md) explains every automatic decision of `f
 
     ---
 
-    [The two papers](../research/papers.md), the [paper → code map](../paper_mapping.md) and the
+    [The papers](../research/papers.md), the [paper → code map](../paper_mapping.md) and the
     [server runbook](../reproduce_papers.md) with exact commands and costs.
 
 </div>

@@ -1,12 +1,13 @@
 ---
-description: NeTMY and NeFTY — the two papers nefi generalizes, what each contributes, what the library implements, and how to cite them.
+description: NeTMY and NeFTY, the first two papers in the series nefi generalizes. What each contributes, what the library implements, and how to cite them.
 ---
 
-# The two papers
+# The papers
 
-Both papers solve an inverse problem of scientific sensing *without training data*: a coordinate
+The series has two published papers so far. Both solve an inverse problem of scientific sensing
+*without training data*: a coordinate
 neural field is optimized for one measurement through a differentiable model of the instrument.
-They differ in the instrument, in the geometry of the unknown — and therefore in the
+They differ in the instrument, in the geometry of the unknown, and therefore in the
 representation that works.
 
 | | **NeTMY** | **NeFTY** |

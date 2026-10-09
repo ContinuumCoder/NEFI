@@ -225,5 +225,6 @@ MIT © 2026 [CAB Lab, Princeton University](https://cablab.scholar.princeton.edu
 
 ## Acknowledgements
 
-nefi is developed and maintained by the [CAB Lab at Princeton University](https://cablab.scholar.princeton.edu). It generalizes the
-lab's NeTMY and NeFTY papers into one library, and we thank the authors of both papers.
+nefi is developed and maintained by the [CAB Lab at Princeton University](https://cablab.scholar.princeton.edu). It grew out of
+the lab's series of papers on neural-field inversion, of which NeTMY and NeFTY are the first two,
+and we thank the authors of both.

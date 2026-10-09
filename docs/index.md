@@ -256,7 +256,7 @@ diagnostics that explain *why* a method wins. [Benchmarking →](tutorials/06_be
 ### Students and labs
 
 Eight tutorials from a five-second 1-D toy to paper-scale runs on GPU servers, fully
-documented reference problems, and a line-by-line map from the two papers' equations to the
+documented reference problems, and a line-by-line map from the papers' equations to the
 code. [Start the tutorials →](getting-started/index.md)
 
 </div>
@@ -265,10 +265,13 @@ code. [Start the tutorials →](getting-started/index.md)
 
 <p class="nf-kicker">Research</p>
 
-## Two papers, one library
+## The research behind nefi
 
-<p class="nf-intro">nefi generalizes two papers of the [CAB Lab at Princeton University](https://cablab.scholar.princeton.edu) into one
-reusable recipe. Both instances ship with paper-scale configurations.</p>
+<p class="nf-intro">nefi grew out of research on neural-field inversion at the
+<a href="https://cablab.scholar.princeton.edu">CAB Lab, Princeton University</a>: a series of papers that apply one idea to very
+different instruments. Two are published so far, NeTMY and NeFTY, and both ship as instances with
+paper-scale configurations. The recipe is written so that the papers that follow slot in the same
+way.</p>
 
 <div class="nf-cols two" markdown>
 

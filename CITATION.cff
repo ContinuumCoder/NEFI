@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: >-
-  If you use nefi, please cite the two papers it implements (listed under "references").
+  If you use nefi, please cite the papers it implements (listed under "references").
   The software itself can be cited with the metadata below.
 title: "nefi: Neural-Field Inversion"
 type: software

@@ -241,7 +241,7 @@ nav:
           - Photoacoustic tomography: instances/photoacoustic3d.md
   - Research:
       - research/index.md
-      - The two papers: research/papers.md
+      - The papers: research/papers.md
       - The representation is the prior: research/thesis.md
       - Paper → code mapping: paper_mapping.md
       - Design document: DESIGN.md
